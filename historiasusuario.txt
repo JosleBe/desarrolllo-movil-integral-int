@@ -1,0 +1,390 @@
+HISTORIAS DE USUARIO - SRUU (UTEZ)
+Formato: Como [rol], quiero [acción], para [beneficio].
+Prioridad: Alta = indispensable para el MVP; Media = importante, puede entrar en el segundo sprint; Baja = deseable.
+Puntos: escala Fibonacci (1, 2, 3, 5, 8). Horas: estimación inicial por tarea.
+
+DEFINICIÓN DE HECHO (DoD)
+- El código cumple los criterios de aceptación y fue revisado por al menos otro integrante del equipo.
+- Las pruebas unitarias y de integración pasan; los endpoints privados validan autenticación y autorización.
+- La funcionalidad es usable en móvil y PC (diseño responsivo/PWA).
+- Los cambios críticos generan registro en bitácora cuando aplica.
+- El Product Owner revisó y aceptó la historia en la demostración del sprint.
+
+TOTALES: 27 historias | 126 puntos | 20 de prioridad Alta | 414 horas
+Épica 1: 4 historias, 16 pts, 63 h | Épica 2: 8 historias, 34 pts, 124 h | Épica 3: 5 historias, 28 pts, 80 h | Épica 4: 4 historias, 23 pts, 63 h | Épica 5: 6 historias, 25 pts, 84 h
+
+==================================================
+ÉPICA 1: AUTENTICACIÓN
+Requerimientos asociados: RF-01, RF-02, RF-03, RNF-01, RN-01
+==================================================
+
+HU-01 | Registro con correo institucional
+Prioridad: Alta | Puntos: 5 | Horas: 16 | Trazabilidad: RF-01, RN-01, RNF-01
+Como alumno o personal de la UTEZ, quiero registrarme con mi correo @utez.edu.mx, para acceder a la plataforma como parte de la comunidad universitaria.
+Criterios de aceptación:
+- Dado un correo con dominio distinto a @utez.edu.mx, cuando intento registrarme, entonces el sistema rechaza el registro y muestra un mensaje claro.
+- Dado un correo institucional válido, cuando completo el formulario, entonces se crea la cuenta en estado pendiente de verificación.
+- La contraseña se almacena con hash seguro (BCrypt o Argon2).
+Tareas:
+- Base de datos | Modelo de usuarios (correo único, estado de cuenta) | 3
+- Backend | Endpoint de registro con validación del dominio @utez.edu.mx | 4
+- Backend | Hash de contraseña con BCrypt/Argon2 | 2
+- Frontend | Formulario de registro con validaciones | 4
+- Pruebas | Pruebas de dominio válido e inválido | 3
+
+HU-02 | Verificación del correo por token
+Prioridad: Alta | Puntos: 3 | Horas: 15 | Trazabilidad: RF-02, RN-01
+Como alumno registrado, quiero recibir un enlace de verificación en mi correo institucional, para confirmar que el correo me pertenece y activar mi cuenta.
+Criterios de aceptación:
+- Dado un registro nuevo, cuando se crea la cuenta, entonces se envía un token de verificación al correo.
+- Dado un token válido y vigente, cuando lo abro, entonces la cuenta pasa a estado verificado con rol Usuario Base.
+- Dado un token vencido o ya usado, cuando lo abro, entonces se me ofrece reenviar uno nuevo.
+Tareas:
+- Backend | Generación y expiración del token de verificación | 3
+- Backend | Envío del correo de verificación | 4
+- Backend | Endpoints de verificación y reenvío | 3
+- Frontend | Pantallas de confirmación, error y reenvío | 3
+- Pruebas | Pruebas de token vencido y ya usado | 2
+
+HU-03 | Inicio y cierre de sesión seguro
+Prioridad: Alta | Puntos: 5 | Horas: 18 | Trazabilidad: RF-03, RNF-02
+Como usuario verificado, quiero iniciar y cerrar sesión de forma segura, para proteger mi cuenta y mis datos.
+Criterios de aceptación:
+- Dadas credenciales correctas, cuando inicio sesión, entonces se emite una sesión encriptada/JWT con expiración.
+- Dadas credenciales incorrectas, cuando intento ingresar, entonces se muestra un error genérico sin revelar cuál dato falló.
+- Cuando cierro sesión, entonces el token queda invalidado y los endpoints privados dejan de responder.
+Tareas:
+- Backend | Login y emisión de JWT con expiración | 4
+- Backend | Middleware de autenticación para endpoints privados | 4
+- Backend | Cierre de sesión e invalidación de token | 3
+- Frontend | Pantalla de login y manejo de sesión | 4
+- Pruebas | Pruebas de seguridad de sesión | 3
+
+HU-04 | Gestión de perfil e historial
+Prioridad: Media | Puntos: 3 | Horas: 14 | Trazabilidad: Sección 4 y 5 (Perfil Restringido)
+Como Usuario Base, quiero consultar y editar mi perfil y ver mi historial general, para mantener mis datos actualizados y revisar mi actividad en la plataforma.
+Criterios de aceptación:
+- Puedo editar mis datos de contacto, pero no el correo institucional.
+- El historial muestra mis rentas y publicaciones con su estado actual.
+- Un usuario con permisos inactivos puede navegar el perfil y el historial en modo solo lectura.
+Tareas:
+- Backend | Endpoints para consultar y editar perfil | 3
+- Backend | Endpoint de historial general | 3
+- Frontend | Vista de perfil | 3
+- Frontend | Vista de historial con estados | 3
+- Pruebas | Pruebas de permisos y solo lectura | 2
+
+==================================================
+ÉPICA 2: PUBLICACIONES
+Requerimientos asociados: RF-04, RF-05, RF-06, RF-07, RF-08, RNF-06
+==================================================
+
+HU-05 | Permisos independientes por cuenta
+Prioridad: Alta | Puntos: 5 | Horas: 19 | Trazabilidad: RF-04, RNF-02, Matriz de permisos
+Como usuario, quiero que mis permisos de Rentador y Vendedor funcionen de forma independiente, para ver y usar únicamente los módulos que tengo habilitados.
+Criterios de aceptación:
+- Solo Rentador activo: puede buscar y rentar, sin acceso al módulo de publicación.
+- Solo Vendedor activo: puede publicar, sin poder rentar artículos de terceros.
+- Ambos activos: acceso completo. Ambos inactivos: solo navegación e historial.
+- Los permisos se validan en el servidor, no solo en la interfaz.
+Tareas:
+- Base de datos | Modelo de permisos Rentador/Vendedor independientes | 4
+- Backend | Middleware de autorización por atributos (ABAC) | 5
+- Frontend | Menús y rutas según permisos activos | 4
+- Frontend | Vista de Perfil Restringido | 2
+- Pruebas | Pruebas de las 4 combinaciones de la matriz | 4
+
+HU-06 | Publicar un útil
+Prioridad: Alta | Puntos: 5 | Horas: 16 | Trazabilidad: RF-05
+Como Vendedor, quiero crear una publicación con nombre, descripción, categoría y estado del artículo, para ofrecer mi material académico en renta.
+Criterios de aceptación:
+- Dado el permiso de Vendedor activo, cuando completo los campos obligatorios, entonces la publicación se crea y aparece en el catálogo.
+- Dado que no tengo permiso de Vendedor activo, cuando intento acceder al módulo, entonces se me deniega el acceso.
+Tareas:
+- Base de datos | Modelo de publicación y categorías | 4
+- Backend | Endpoint de creación de publicación | 4
+- Frontend | Formulario de publicación | 5
+- Pruebas | Pruebas de permiso y campos obligatorios | 3
+
+HU-07 | Editar, pausar y eliminar publicaciones
+Prioridad: Alta | Puntos: 3 | Horas: 16 | Trazabilidad: RF-05, RN-04
+Como Vendedor, quiero editar, pausar, reactivar o eliminar mis publicaciones, para controlar qué artículos están disponibles en cada momento.
+Criterios de aceptación:
+- Una publicación pausada no aparece como rentable en el catálogo.
+- No puedo eliminar una publicación con rentas activas o pendientes; el sistema me lo indica.
+- Solo puedo modificar mis propias publicaciones.
+Tareas:
+- Backend | Endpoints de editar, pausar, reactivar y eliminar | 5
+- Backend | Regla: no eliminar con rentas activas o pendientes | 3
+- Frontend | Panel de mis publicaciones | 5
+- Pruebas | Pruebas de propiedad y de reglas de eliminación | 3
+
+HU-08 | Definir precio y periodos de renta
+Prioridad: Alta | Puntos: 3 | Horas: 12 | Trazabilidad: RF-05, RF-07
+Como Vendedor, quiero establecer el precio y los periodos de renta de cada artículo, para fijar las condiciones bajo las que rento mi material.
+Criterios de aceptación:
+- Puedo definir uno o más periodos (por hora, día o semana) con su precio.
+- El precio y el periodo se muestran al Rentador antes de solicitar la renta.
+Tareas:
+- Base de datos | Modelo de periodos y precios | 3
+- Backend | Endpoints CRUD de periodos | 3
+- Frontend | Selector de periodos y precio | 4
+- Pruebas | Pruebas de cálculo y validación de precios | 2
+
+HU-09 | Galería de imágenes por artículo
+Prioridad: Media | Puntos: 5 | Horas: 20 | Trazabilidad: RF-06, RNF-06
+Como Vendedor, quiero subir, previsualizar y eliminar varias fotos de mi artículo, para mostrar con claridad su estado real a los posibles rentadores.
+Criterios de aceptación:
+- Puedo cargar múltiples imágenes y ver una vista previa antes de guardar.
+- Las imágenes se comprimen y optimizan, y se almacenan en un servicio Cloud seguro.
+- Puedo eliminar cualquier imagen de mi publicación en cualquier momento.
+Tareas:
+- Backend | Endpoint de carga múltiple de imágenes | 4
+- Backend | Compresión y optimización de imágenes | 4
+- Backend | Integración con almacenamiento Cloud seguro | 4
+- Frontend | Carga con vista previa y eliminación | 5
+- Pruebas | Pruebas de formatos, tamaños y borrado | 3
+
+HU-10 | Búsqueda avanzada en el catálogo
+Prioridad: Alta | Puntos: 5 | Horas: 16 | Trazabilidad: RF-07, RNF-04
+Como Usuario Base o Rentador, quiero buscar útiles y filtrarlos por categoría, rango de precio, disponibilidad y período de renta, para encontrar rápido el material que necesito.
+Criterios de aceptación:
+- Puedo combinar varios filtros y los resultados se actualizan en consecuencia.
+- Si no hay coincidencias, se muestra un mensaje y sugerencias para ampliar la búsqueda.
+- El catálogo es usable desde móvil y PC (diseño responsivo/PWA).
+Tareas:
+- Backend | Endpoint de búsqueda con filtros combinables | 5
+- Base de datos | Índices para búsqueda y filtros | 2
+- Frontend | Catálogo y panel de filtros responsivo | 6
+- Pruebas | Pruebas de combinaciones de filtros | 3
+
+HU-11 | Disponibilidad en tiempo real
+Prioridad: Alta | Puntos: 5 | Horas: 16 | Trazabilidad: RF-08, RN-04
+Como Rentador, quiero ver la disponibilidad actual de cada artículo, para saber si puedo rentarlo en las fechas que necesito.
+Criterios de aceptación:
+- El catálogo indica si el artículo está disponible o no para las fechas consultadas.
+- Cuando otro usuario reserva el artículo, la disponibilidad se actualiza sin recargar manualmente.
+Tareas:
+- Backend | Cálculo de disponibilidad por rango de fechas | 5
+- Backend | Actualización en tiempo real (WebSocket o polling) | 5
+- Frontend | Indicador de disponibilidad en el catálogo | 3
+- Pruebas | Pruebas de actualización y consistencia | 3
+
+HU-12 | Consultar mis rentas activas
+Prioridad: Media | Puntos: 3 | Horas: 9 | Trazabilidad: Sección 4 (Vendedor), Flujo de estados
+Como Vendedor, quiero ver el listado de mis artículos actualmente rentados y su estado, para dar seguimiento a mi inventario y saber cuándo me serán devueltos.
+Criterios de aceptación:
+- El listado muestra artículo, rentador, fechas y el estado actual de la renta.
+- Puedo filtrar por estado (por ejemplo, EN RENTA o DEVUELTA).
+Tareas:
+- Backend | Endpoint de rentas del Vendedor con filtro por estado | 3
+- Frontend | Vista de rentas activas | 4
+- Pruebas | Pruebas de filtros y permisos | 2
+
+==================================================
+ÉPICA 3: PAGOS Y QR
+Requerimientos asociados: RF-09, RF-10, RF-11, RNF-05, RN-04, RN-06
+==================================================
+
+HU-13 | Solicitar una renta
+Prioridad: Alta | Puntos: 5 | Horas: 22 | Trazabilidad: RF-09, RN-04
+Como Rentador, quiero solicitar la renta de un artículo indicando fechas y horarios, para reservarlo para el momento en que lo necesito.
+Criterios de aceptación:
+- La solicitud crea una renta en estado SOLICITADA.
+- Dado que el artículo ya está reservado en ese lapso, cuando intento solicitarlo, entonces el sistema no lo permite.
+- Si el artículo se vuelve no disponible, la renta pasa a RECHAZADA y se me notifica.
+Tareas:
+- Base de datos | Modelo de renta y catálogo de estados | 4
+- Backend | Endpoint de solicitud con validación de traslape de fechas | 6
+- Backend | Transición a RECHAZADA y notificación | 3
+- Frontend | Selección de fechas y horarios | 5
+- Pruebas | Pruebas de concurrencia (RN-04) | 4
+
+HU-14 | Pagar la renta
+Prioridad: Alta | Puntos: 8 | Horas: 21 | Trazabilidad: RF-10
+Como Rentador, quiero pagar mi renta mediante la pasarela de pagos, para confirmar mi reserva.
+Criterios de aceptación:
+- Con un pago exitoso, la renta pasa a PAGADA y luego a CONFIRMADA.
+- Si el pago falla, la renta permanece sin confirmar y puedo reintentar.
+- Cada pago queda registrado con fecha, monto y referencia.
+Tareas:
+- Backend | Integración con la pasarela de pagos | 8
+- Backend | Registro del pago y transiciones PAGADA y CONFIRMADA | 4
+- Frontend | Flujo de pago y reintento | 5
+- Pruebas | Pruebas de pago exitoso y fallido | 4
+
+HU-15 | Recibir mi boleto con QR único
+Prioridad: Alta | Puntos: 8 | Horas: 17 | Trazabilidad: RF-11, RNF-05
+Como Rentador, quiero obtener un código QR único al confirmarse mi pago, para presentarlo en Recepción para retirar el artículo.
+Criterios de aceptación:
+- El QR se genera automáticamente solo después de la confirmación del pago.
+- El QR es único, está firmado digitalmente y no puede duplicarse.
+- Puedo ver el boleto desde mi cuenta en cualquier momento.
+Tareas:
+- Backend | Generación de QR único con firma digital | 6
+- Backend | Endpoint del boleto | 3
+- Frontend | Vista del boleto con QR | 4
+- Pruebas | Pruebas de unicidad y firma | 4
+
+HU-16 | Cancelar una solicitud antes de pagar
+Prioridad: Media | Puntos: 2 | Horas: 9 | Trazabilidad: Flujo de estados, RN-04
+Como Rentador, quiero cancelar mi solicitud mientras no haya pagado, para liberar la reserva si ya no necesito el artículo.
+Criterios de aceptación:
+- Dada una renta en estado SOLICITADA, cuando la cancelo, entonces pasa a CANCELADA.
+- El artículo vuelve a estar disponible para esas fechas.
+- Después del pago ya no puedo cancelar desde esta opción.
+Tareas:
+- Backend | Endpoint de cancelación (solo en SOLICITADA) | 3
+- Backend | Liberación de disponibilidad | 2
+- Frontend | Botón de cancelar con confirmación | 2
+- Pruebas | Pruebas de estados permitidos | 2
+
+HU-17 | Vigencia y un solo uso del QR
+Prioridad: Alta | Puntos: 5 | Horas: 11 | Trazabilidad: RNF-05, RN-06
+Como Sistema, quiero invalidar cada QR una vez procesado en su fase, para evitar duplicaciones y usos indebidos del boleto.
+Criterios de aceptación:
+- Tras procesar el QR en una fase, este vence automáticamente.
+- Un QR ya usado o vencido es rechazado con un mensaje claro en Recepción.
+Tareas:
+- Backend | Invalidación del QR al procesar cada fase | 4
+- Backend | Validación de fase y vigencia | 4
+- Pruebas | Pruebas de reúso y QR vencido | 3
+
+==================================================
+ÉPICA 4: RECEPCIÓN
+Requerimientos asociados: RF-12, RF-13, RF-14, RF-15, RNF-03, RN-05
+==================================================
+
+HU-18 | Escanear y validar el QR
+Prioridad: Alta | Puntos: 8 | Horas: 21 | Trazabilidad: RF-12, RNF-03, RNF-04
+Como personal de Recepción, quiero escanear un QR y ver los datos del artículo, el rentador y el vendedor, para validar identidades y la información de la transacción.
+Criterios de aceptación:
+- El escaneo y la validación responden en menos de 2 segundos.
+- Un QR falso, vencido o de otra fase se rechaza y se avisa al operador.
+- La pantalla funciona en móvil y tablet.
+Tareas:
+- Frontend | Escáner de QR con cámara móvil | 6
+- Backend | Endpoint de validación de firma y datos | 5
+- Backend | Optimización para responder en menos de 2 s | 3
+- Frontend | Pantalla de datos de la transacción | 4
+- Pruebas | Pruebas de rendimiento y QR inválidos | 3
+
+HU-19 | Recibir el artículo del Vendedor
+Prioridad: Alta | Puntos: 5 | Horas: 13 | Trazabilidad: RF-13
+Como personal de Recepción, quiero registrar la recepción del artículo que deja el Vendedor, para resguardarlo hasta que lo retire el Rentador.
+Criterios de aceptación:
+- Tras el registro, la renta pasa a EN RECEPCIÓN.
+- Puedo anotar el estado del artículo en la recepción.
+- Queda registrado quién recibió, cuándo y en qué estado.
+Tareas:
+- Backend | Endpoint de recepción y transición a EN RECEPCIÓN | 4
+- Frontend | Formulario de recepción con estado del artículo | 4
+- Base de datos | Registro de responsable, fecha y estado | 2
+- Pruebas | Pruebas del flujo de recepción | 3
+
+HU-20 | Entregar el artículo al Rentador
+Prioridad: Alta | Puntos: 5 | Horas: 14 | Trazabilidad: RF-14, RN-05
+Como personal de Recepción, quiero entregar el artículo solo tras un escaneo exitoso del QR, para garantizar que lo recibe la persona correcta.
+Criterios de aceptación:
+- Sin escaneo exitoso del QR, el sistema no permite registrar la entrega.
+- Tras la entrega, la renta pasa a ENTREGADA y luego a EN RENTA.
+Tareas:
+- Backend | Bloqueo de entrega sin QR validado (RN-05) | 4
+- Backend | Transiciones a ENTREGADA y EN RENTA | 3
+- Frontend | Pantalla de entrega | 4
+- Pruebas | Pruebas de entrega con y sin QR | 3
+
+HU-21 | Registrar la devolución
+Prioridad: Alta | Puntos: 5 | Horas: 15 | Trazabilidad: RF-15, RF-16
+Como personal de Recepción, quiero registrar la devolución del Rentador y el retorno del artículo al Vendedor, para cerrar el ciclo de la renta y liberar el pago.
+Criterios de aceptación:
+- Al devolver, la renta pasa a DEVUELTA; al retornar al Vendedor, pasa a FINALIZADA.
+- Si detecto daño o faltantes, puedo abrir una incidencia desde la misma pantalla.
+- Quedan registrados fecha, hora y estado del artículo.
+Tareas:
+- Backend | Registro de devolución y retorno (DEVUELTA y FINALIZADA) | 5
+- Frontend | Pantalla de devolución con acceso a incidencia | 5
+- Base de datos | Historial de estado del artículo | 2
+- Pruebas | Pruebas del cierre de renta | 3
+
+==================================================
+ÉPICA 5: ADMIN E INCIDENCIAS
+Requerimientos asociados: RF-16, RF-17, RNF-08, RN-02, RN-03
+==================================================
+
+HU-22 | Reportar una incidencia
+Prioridad: Alta | Puntos: 5 | Horas: 17 | Trazabilidad: RF-16
+Como Vendedor, Rentador o Recepción, quiero registrar un reporte de daño, demora o artículo faltante, para dejar constancia y que el caso sea atendido.
+Criterios de aceptación:
+- Puedo elegir el tipo de incidencia (daño, demora, faltante o no entregado) y adjuntar descripción.
+- Al registrarla, la renta pasa a estado INCIDENCIA.
+- Los involucrados reciben una notificación.
+Tareas:
+- Base de datos | Modelo de incidencias | 3
+- Backend | Creación de incidencia y transición a INCIDENCIA | 4
+- Backend | Notificaciones a los involucrados | 3
+- Frontend | Formulario de reporte | 4
+- Pruebas | Pruebas por tipo de incidencia | 3
+
+HU-23 | Resolver incidencias
+Prioridad: Alta | Puntos: 5 | Horas: 16 | Trazabilidad: RF-16, RNF-08
+Como Administrador, quiero revisar, gestionar y cerrar los reportes de incidencias, para resolver los conflictos entre usuarios de forma justa.
+Criterios de aceptación:
+- Puedo ver el detalle, evidencias e historial de la renta involucrada.
+- Puedo registrar una resolución y cambiar el estado de la incidencia.
+- Cada cambio queda en la bitácora.
+Tareas:
+- Backend | Endpoints de listado, detalle y resolución | 5
+- Frontend | Panel de incidencias del Administrador | 6
+- Backend | Registro en bitácora de cada cambio | 2
+- Pruebas | Pruebas de resolución y permisos | 3
+
+HU-24 | Suspender permisos con justificación
+Prioridad: Alta | Puntos: 5 | Horas: 14 | Trazabilidad: RF-17, RN-02, RN-03
+Como Administrador, quiero suspender el permiso de Rentador o de Vendedor de un usuario, para aplicar sanciones ante incumplimientos.
+Criterios de aceptación:
+- El sistema exige registrar el motivo; sin motivo no se puede suspender.
+- Suspender un permiso no afecta automáticamente al otro permiso.
+- El usuario ve el estado de su permiso suspendido y el motivo.
+Tareas:
+- Backend | Endpoint de suspensión con motivo obligatorio (RN-03) | 4
+- Backend | Aislamiento de efectos por permiso (RN-02) | 3
+- Frontend | Ventana de suspensión y aviso al usuario | 4
+- Pruebas | Pruebas de independencia de permisos | 3
+
+HU-25 | Reactivar permisos
+Prioridad: Media | Puntos: 2 | Horas: 8 | Trazabilidad: RF-17, RNF-08
+Como Administrador, quiero reactivar de forma individual el permiso de Rentador o Vendedor, para restablecer el acceso cuando la situación se resuelva.
+Criterios de aceptación:
+- Puedo reactivar cada permiso por separado.
+- La reactivación queda registrada con fecha, administrador y motivo.
+Tareas:
+- Backend | Endpoint de reactivación individual | 3
+- Frontend | Acción de reactivar en panel de usuarios | 3
+- Pruebas | Pruebas de reactivación y bitácora | 2
+
+HU-26 | Consultar la bitácora de auditoría
+Prioridad: Media | Puntos: 5 | Horas: 18 | Trazabilidad: RNF-08
+Como Administrador, quiero consultar el registro de acciones administrativas y cambios de estado críticos, para auditar lo ocurrido y detectar irregularidades.
+Criterios de aceptación:
+- La bitácora registra usuario, acción, fecha y hora, y estado anterior y nuevo.
+- Puedo filtrar por usuario, tipo de acción y rango de fechas.
+- Los registros no se pueden editar ni borrar.
+Tareas:
+- Base de datos | Tabla de bitácora de solo inserción | 3
+- Backend | Registro automático de acciones críticas | 5
+- Backend | Consulta con filtros | 3
+- Frontend | Vista de bitácora | 4
+- Pruebas | Pruebas de inmutabilidad y filtros | 3
+
+HU-27 | Moderar el catálogo
+Prioridad: Baja | Puntos: 3 | Horas: 11 | Trazabilidad: Sección 4 (Administrador), RNF-08
+Como Administrador, quiero revisar y pausar o retirar publicaciones inapropiadas, para mantener un catálogo confiable y acorde a la institución.
+Criterios de aceptación:
+- Puedo pausar o eliminar cualquier publicación indicando el motivo.
+- El Vendedor afectado recibe la notificación con el motivo.
+Tareas:
+- Backend | Endpoint de moderación con motivo | 3
+- Frontend | Vista de moderación del catálogo | 4
+- Backend | Notificación al Vendedor afectado | 2
+- Pruebas | Pruebas de moderación y notificación | 2
