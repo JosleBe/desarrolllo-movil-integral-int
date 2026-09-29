@@ -13,8 +13,7 @@
 ## Criterios de aceptación
 
 - [ ] Puedo combinar varios filtros y los resultados se actualizan en consecuencia.
-- [ ] Si no hay coincidencias, se muestra un mensaje y sugerencias para ampliar la búsqueda.
-- [ ] El catálogo es usable desde móvil y PC (diseño responsivo/PWA).
+- [ ] Si no hay coincidencias, se muestra un mensaje.
 
 ## Desglose de tareas
 
