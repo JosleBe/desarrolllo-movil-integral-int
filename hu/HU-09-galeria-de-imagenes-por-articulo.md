@@ -13,7 +13,6 @@
 ## Criterios de aceptación
 
 - [ ] Puedo cargar múltiples imágenes y ver una vista previa antes de guardar.
-- [ ] Las imágenes se comprimen y optimizan, y se almacenan en un servicio Cloud seguro.
 - [ ] Puedo eliminar cualquier imagen de mi publicación en cualquier momento.
 
 ## Desglose de tareas
