@@ -28,7 +28,3 @@
 ## Notas
 
 _(Espacio vacío para notas del equipo, decisiones técnicas y enlaces a PRs o issues.)_
-//////////////////////////////
-
-Que comprueba 
-comprobacion del 
