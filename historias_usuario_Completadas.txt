@@ -14,7 +14,7 @@ TOTALES: 52 historias | 203 puntos | 26 de prioridad Alta | 698 horas
 Historias originales (HU-01 a HU-27): 27 historias, 126 pts, 20 de prioridad Alta, 414 h
 Historias complementarias (HU-28 a HU-52): 25 historias, 77 pts, 6 de prioridad Alta, 284 h
 Épica 1: 4 historias, 16 pts, 63 h | Épica 2: 8 historias, 34 pts, 124 h | Épica 3: 5 historias, 28 pts, 80 h | Épica 4: 4 historias, 23 pts, 63 h | Épica 5: 6 historias, 25 pts, 84 h
-Épica 6: 4 historias, 11 pts, 43 h | Épica 7: 4 historias, 10 pts, 40 h | Épica 8: 5 historias, 21 pts, 70 h | Épica 9: 3 historias, 13 pts, 47 h | Épica 10: 4 historias, 8 pts, 32 h | Épica 11: 2 historias, 8 pts, 27 h | Épica 12: 3 historias, 6 pts, 25 h
+Épica 6: 4 historias, 11 pts, 43 h | Épica 7: 4 historias, 10 pts, 40 h | Épica 8: 5 historias, 21 pts, 70 h | Épica 9: 2 historias, 10 pts, 35 h | Épica 10: 4 historias, 8 pts, 32 h | Épica 11: 2 historias, 8 pts, 27 h | Épica 12: 4 historias, 9 pts, 37 h
 
 ==================================================
 ÉPICA 1: AUTENTICACIÓN
@@ -608,22 +608,6 @@ Tareas:
 - Backend | Integración del reporte de mensajes con moderación | 3
 - Pruebas | Pruebas de mensajería y cierre del chat | 4
 
-HU-52 | Avisos dentro de la app
-Prioridad: Media | Puntos: 3 | Horas: 12 | Trazabilidad: Complementa HU-38, HU-41
-Como usuario, quiero ver avisos dentro de la app cuando cambie el estado de mis solicitudes y rentas, para enterarme sin tener que revisar cada pantalla.
-Criterios de aceptación:
-- Recibo un aviso dentro de la app cuando mi solicitud es aprobada o rechazada, se registra un pago o una devolución, recibo saldo a favor o se aplica un cargo por retraso.
-- Veo una insignia con el número de avisos sin leer en la barra de navegación.
-- Al tocar un aviso, voy a la pantalla de la renta correspondiente.
-- Cada aviso se guarda para consultarlo después en el centro de notificaciones (HU-41).
-- La app revisa si hay avisos nuevos al abrirse y cada cierto tiempo mientras la uso.
-Tareas:
-- Base de datos | Tabla de avisos (tipo, mensaje, leído, renta asociada) | 1
-- Backend | Endpoint de avisos nuevos por usuario | 3
-- Frontend | Consulta periódica y al volver a primer plano (Timer + WidgetsBindingObserver) | 3
-- Frontend | Banner/SnackBar e insignia en la barra de navegación | 3
-- Pruebas | Pruebas de avisos y navegación a la renta | 2
-
 ==================================================
 ÉPICA 10: CONFIANZA Y REPUTACIÓN
 Requerimientos asociados: Complementa Épica 2: Publicaciones y Épica 5: Admin e incidencias (HU-21, HU-27)
@@ -747,3 +731,19 @@ Tareas:
 - Frontend | Pantalla explicativa y acceso a ajustes | 2
 - Frontend | Integración con mobile_scanner | 2
 - Pruebas | Pruebas con permiso concedido, denegado y bloqueado | 2
+
+HU-52 | Avisos dentro de la app
+Prioridad: Media | Puntos: 3 | Horas: 12 | Trazabilidad: Complementa HU-38, HU-41
+Como usuario, quiero ver avisos dentro de la app cuando cambie el estado de mis solicitudes y rentas, para enterarme sin tener que revisar cada pantalla.
+Criterios de aceptación:
+- Recibo un aviso dentro de la app cuando mi solicitud es aprobada o rechazada, se registra un pago o una devolución, recibo saldo a favor o se aplica un cargo por retraso.
+- Veo una insignia con el número de avisos sin leer en la barra de navegación.
+- Al tocar un aviso, voy a la pantalla de la renta correspondiente.
+- Cada aviso se guarda para consultarlo después en el centro de notificaciones (HU-41).
+- La app revisa si hay avisos nuevos al abrirse y cada cierto tiempo mientras la uso.
+Tareas:
+- Base de datos | Tabla de avisos (tipo, mensaje, leído, renta asociada) | 1
+- Backend | Endpoint de avisos nuevos por usuario | 3
+- Frontend | Consulta periódica y al volver a primer plano (Timer + WidgetsBindingObserver) | 3
+- Frontend | Banner/SnackBar e insignia en la barra de navegación | 3
+- Pruebas | Pruebas de avisos y navegación a la renta | 2
