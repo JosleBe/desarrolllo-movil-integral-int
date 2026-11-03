@@ -11,6 +11,11 @@ abstract final class Env {
     defaultValue: 'http://localhost:8080/api',
   );
 
+  /// Usa un backend simulado en memoria (sin servidor). Solo para desarrollo
+  /// y demostraciones: nunca se activa en `prod`.
+  static const bool _useFakeApiFlag = bool.fromEnvironment('USE_FAKE_API');
+
   static bool get isDev => name == 'dev';
   static bool get isProd => name == 'prod';
+  static bool get useFakeApi => _useFakeApiFlag && !isProd;
 }
