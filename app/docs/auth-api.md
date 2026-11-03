@@ -1,5 +1,7 @@
 # Contrato de API — Épica 1 (Autenticación)
 
+Implementado en [`backend/`](../../backend) (Spring Boot). Base local: `http://localhost:8080/api`.
+
 Lo que la app espera del backend para HU-01, HU-02 y HU-03. Base: `API_BASE_URL`.
 Los errores responden `{ "code": "CODIGO", "message": "texto" }`.
 
@@ -13,7 +15,7 @@ Los errores responden `{ "code": "CODIGO", "message": "texto" }`.
 
 | Método | Ruta | Cuerpo | Éxito | Errores |
 |---|---|---|---|---|
-| POST | `/auth/register` | `{fullName, email, password}` | `201 {user}` con `status=PENDIENTE_VERIFICACION` | `422 INSTITUTIONAL_EMAIL_REQUIRED`, `409 EMAIL_ALREADY_REGISTERED` |
+| POST | `/auth/register` | `{fullName, email, password}` | `201 {user}` con `status=PENDIENTE_VERIFICACION` | `422 INSTITUTIONAL_EMAIL_REQUIRED`, `409 EMAIL_ALREADY_REGISTERED`, `400 WEAK_PASSWORD`, `400 VALIDATION_ERROR {fields}` |
 | POST | `/auth/verify` | `{token}` | `200 {user}` con `status=VERIFICADA`, `role=USUARIO_BASE` | `410 TOKEN_EXPIRED {email}`, `409 TOKEN_ALREADY_USED {email}`, `404 TOKEN_INVALID` |
 | POST | `/auth/verify/resend` | `{email}` | `202` (igual exista o no el correo) | `429 RATE_LIMITED` |
 | POST | `/auth/login` | `{email, password}` | `200 {accessToken, expiresAt (ISO-8601), user}` | `401 INVALID_CREDENTIALS`, `403 EMAIL_NOT_VERIFIED` |

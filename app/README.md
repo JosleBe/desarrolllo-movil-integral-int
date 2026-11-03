@@ -13,6 +13,13 @@ flutter run --dart-define-from-file=env/dev.json
 ```
 > En el emulador de Android, `10.0.2.2` apunta al `localhost` de tu máquina.
 
+### Contra el backend real
+```bash
+cd .. && docker compose up -d --build
+flutter run -d chrome --web-port 8686 --dart-define-from-file=env/local.example.json
+```
+El correo de verificación llega a Mailpit (http://localhost:8025) y su enlace abre `http://localhost:8686/verificar?token=…`.
+
 ### Modo demo (sin backend)
 Con `"USE_FAKE_API": "true"` (ya viene en `dev.example.json`) la app usa un backend simulado en memoria con las mismas reglas que el real. Cuenta verificada: `demo@utez.edu.mx` / `Demo1234`. Al registrarte, la pantalla de verificación muestra una *bandeja de prueba* con el enlace del correo (y la opción de abrirlo ya vencido). Nunca se activa con `ENV=prod`.
 
