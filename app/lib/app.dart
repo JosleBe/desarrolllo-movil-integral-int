@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/env.dart';
@@ -18,6 +19,9 @@ class SruuApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       routerConfig: router,
+      locale: const Locale('es', 'MX'),
+      supportedLocales: const [Locale('es', 'MX'), Locale('es')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
     );
   }
 }
