@@ -14,14 +14,15 @@ flutter run --dart-define-from-file=env/dev.json
 > En el emulador de Android, `10.0.2.2` apunta al `localhost` de tu máquina.
 
 ### Modo demo (sin backend)
-Con `"USE_FAKE_API": "true"` (ya viene en `dev.example.json`) la app usa un backend simulado en memoria con las mismas reglas que el real. Cuenta verificada: `demo@utez.edu.mx` / `Demo1234`. Al registrarte, la pantalla de verificación muestra una *bandeja de prueba* con el enlace del correo (y la opción de abrirlo ya vencido). Nunca se activa con `ENV=prod`.
+La autenticación usa hoy `MockAuthRepository` (en memoria). Cuentas verificadas: `demo@utez.edu.mx` / `demo1234` (todos los permisos), `laura@utez.edu.mx` / `laura1234`, `pedro@utez.edu.mx` / `pedro1234`. Con `ENV=dev`, la pantalla de verificación muestra y pre-rellena el código. Para conectar el backend basta cambiar `authRepositoryProvider` en `features/auth/presentation/providers/auth_controller.dart`.
 
 ## Autenticación (Épica 1)
-| HU | Pantallas | Ruta |
+| HU | Pantalla | Archivo |
 |---|---|---|
-| HU-01 Registro | Crear cuenta | `/registro` |
-| HU-02 Verificación | Activa tu cuenta · Resultado del enlace | `/registro/pendiente`, `/verificar?token=` |
-| HU-03 Sesión | Iniciar sesión · Inicio con cerrar sesión | `/login`, `/` |
+| HU-01 Registro | Crear cuenta | `register_page.dart` |
+| HU-02 Verificación | Verifica tu correo (código + reenvío) | `verify_email_page.dart` |
+| HU-03 Sesión | Iniciar sesión / cerrar sesión | `login_page.dart`, `AuthController.logout` |
+| HU-04 Perfil | Mi perfil, permisos e historial | `profile_page.dart` |
 
 Contrato con el backend: [`docs/auth-api.md`](docs/auth-api.md).
 
@@ -34,6 +35,7 @@ Contrato con el backend: [`docs/auth-api.md`](docs/auth-api.md).
 | Build web (PWA) | `flutter build web --dart-define-from-file=env/prod.json` |
 
 ## Estructura
+Arquitectura feature-first (domain / data / presentation); detalle en `ARQUITECTURA.md`.
 ```
 lib/
 ├── main.dart              # ProviderScope + runApp
@@ -42,21 +44,14 @@ lib/
 │   ├── config/env.dart    # Variables por ambiente (--dart-define)
 │   ├── network/           # Dio + interceptor JWT
 │   ├── router/            # go_router y rutas
-│   ├── storage/           # flutter_secure_storage (JWT + expiración)
-│   ├── theme/             # Tipografía base
-│   └── widgets/           # Sistema de frases (escenas, voces, campos)
+│   ├── storage/           # flutter_secure_storage (JWT)
+│   ├── theme/             # Tema Material 3 (verde UTEZ)
+│   └── widgets/           # Widgets compartidos (PressableScale)
 └── features/<feature>/
-    ├── data/              # repositorios, DTOs, llamadas API
-    ├── domain/            # modelos y reglas
-    └── presentation/      # páginas, widgets, providers
+    ├── domain/            # modelos, contratos y excepciones
+    ├── data/              # implementaciones (mock hoy, API mañana)
+    └── presentation/      # páginas, widgets y providers (Riverpod)
 ```
 
 ## Stack
-Riverpod (estado/DI) · go_router (navegación) · Dio (HTTP) · flutter_secure_storage (JWT)
-
-## Diseño
-Cada pantalla es **una frase que completas**: "Soy ___ @utez.edu.mx y mi clave es ___". La app habla en peso medio y lo que tú escribes aparece en negritas y en otro color, dentro de la misma frase. El dominio institucional es parte fija de la oración, así que no hay forma de escribir otro (HU-01).
-
-Cada momento del flujo tiene su color de fondo y el fondo transita de uno a otro: menta para entrar, verde UTEZ para registrarte o al quedar verificado, índigo mientras esperas el correo y rojo si un enlace no sirve. No hay tarjetas ni cajas: los campos son líneas subrayadas con la misma tipografía de la frase, los errores son resaltados de marcador y la acción principal es una barra a todo lo ancho abajo. Nunca se usan mayúsculas con espaciado.
-
-Piezas en `lib/core/widgets/sentence.dart` (`SentenceScaffold`, `Say`, `you()`, `SentenceField`, `MatriculaField`, `Note`, `ActionBar`). Tipografías (SIL OFL, en `assets/fonts`): Bricolage Grotesque para la frase y Atkinson Hyperlegible para el texto de apoyo.
+Riverpod (estado/DI) · go_router (navegación) · Dio (HTTP) · flutter_secure_storage (JWT) · qr_flutter (QR)
