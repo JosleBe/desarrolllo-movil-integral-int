@@ -36,12 +36,16 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
   @override
   void initState() {
     super.initState();
-    _devToken = widget.args.devToken;
+    // Con el backend real el código solo llega por correo (devToken vacío).
+    _devToken = _nonEmpty(widget.args.devToken);
     // En desarrollo, pre-rellena el token para agilizar la prueba.
     if (Env.isDev && _devToken != null) {
       _tokenController.text = _devToken!;
     }
   }
+
+  static String? _nonEmpty(String? value) =>
+      (value == null || value.isEmpty) ? null : value;
 
   @override
   void dispose() {
@@ -85,8 +89,8 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
           .resendVerificationToken(email: widget.args.email);
       if (!mounted) return;
       setState(() {
-        _devToken = token;
-        if (Env.isDev) _tokenController.text = token;
+        _devToken = _nonEmpty(token);
+        if (Env.isDev && _devToken != null) _tokenController.text = token;
       });
       messenger
         ..hideCurrentSnackBar()

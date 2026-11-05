@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/env.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../data/api_auth_repository.dart';
 import '../../data/mock_auth_repository.dart';
 import '../../domain/auth_exception.dart';
 import '../../domain/auth_repository.dart';
@@ -9,11 +12,14 @@ import 'auth_state.dart';
 
 /// Repositorio de autenticación.
 ///
-/// Hoy devuelve el mock en memoria. Cuando exista el backend, basta
-/// reemplazar esta línea por la implementación con Dio (`ApiAuthRepository`)
-/// sin tocar controladores ni pantallas.
+/// Por defecto es el mock en memoria (lo usan las pruebas y el modo demo).
+/// Con `--dart-define=USE_API=true` (o en `prod`) se conecta al backend con
+/// [ApiAuthRepository]; controladores y pantallas no cambian.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final tokenStorage = ref.watch(tokenStorageProvider);
+  if (Env.useApi) {
+    return ApiAuthRepository(ref.watch(dioProvider), tokenStorage);
+  }
   return MockAuthRepository(tokenStorage);
 });
 
