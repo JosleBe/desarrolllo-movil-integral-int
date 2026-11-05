@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: sruu-backend
+  datasource:
+    url: ${SRUU_DB_URL:jdbc:postgresql://localhost:55432/sruu}
+    username: ${SRUU_DB_USER:sruu}
+    password: ${SRUU_DB_PASSWORD:sruu}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  mail:
+    host: ${SRUU_MAIL_HOST:localhost}
+    port: ${SRUU_MAIL_PORT:1025}
+    username: ${SRUU_MAIL_USER:}
+    password: ${SRUU_MAIL_PASSWORD:}
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+sruu:
+  # Solo desarrollo: crea las cuentas demo del equipo (demo, laura y pedro; ver DemoDataSeeder).
+  seed-demo: ${SRUU_SEED_DEMO:false}
+  jwt:
+    # Clave HMAC de al menos 32 bytes. En producción SIEMPRE se define por variable de entorno.
+    secret: ${SRUU_JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}
+    ttl: ${SRUU_JWT_TTL:8h}
+  verification:
+    ttl: 24h
+    resend-cooldown: 60s
+    # Intentos fallidos permitidos por código antes de exigir uno nuevo.
+    max-attempts: 5
+  mail-from: ${SRUU_MAIL_FROM:SRUU UTEZ <no-reply@sruu.utez.edu.mx>}
+  cors:
+    allowed-origin-patterns: ${SRUU_CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*}

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/router/app_routes.dart';
-import '../../../core/widgets/sentence.dart';
-import '../data/auth_repository.dart';
-import '../domain/auth_models.dart';
-import '../domain/auth_validators.dart';
-import 'widgets/auth_widgets.dart';
+import '../../../core/router/app_router.dart';
+import 'providers/auth_controller.dart';
+import 'verify_email_page.dart';
 
-/// HU-01: "Hola, soy ___ y mi correo es ___@utez.edu.mx". El dominio es
-/// parte fija de la frase; si alguien pega otro correo, se rechaza.
+/// Registro con correo institucional (HU-01).
+///
+/// Valida el dominio @utez.edu.mx en la UI y delega la creación de la
+/// cuenta al repositorio. Tras registrar, lleva a la verificación por
+/// token (HU-02).
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
@@ -21,130 +20,139 @@ class RegisterPage extends ConsumerStatefulWidget {
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _matricula = TextEditingController();
-  final _password = TextEditingController();
-  final _confirm = TextEditingController();
-  bool _busy = false;
-  AuthFailure? _failure;
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _submitting = false;
 
   @override
   void dispose() {
-    _name.dispose();
-    _matricula.dispose();
-    _password.dispose();
-    _confirm.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _busy = true;
-      _failure = null;
-    });
+
+    setState(() => _submitting = true);
+    final repository = ref.read(authRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
     try {
-      final user = await ref
-          .read(authRepositoryProvider)
-          .register(
-            fullName: _name.text.trim(),
-            email: AuthValidators.composeEmail(_matricula.text),
-            password: _password.text,
-          );
+      final result = await repository.register(
+        fullName: _nameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
       if (!mounted) return;
-      TextInput.finishAutofillContext();
-      context.go(AppRoutes.pendingFor(user.email));
-    } on AuthFailure catch (f) {
-      if (mounted) setState(() => _failure = f);
+      router.push(
+        AppRoutes.verify,
+        extra: VerifyArgs(
+          email: result.user.email,
+          devToken: result.devToken,
+        ),
+      );
+    } on Exception catch (e) {
+      final message = e.toString().replaceFirst('AuthException: ', '');
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final failure = _failure;
-
-    return Form(
-      key: _formKey,
-      child: AutofillGroup(
-        child: SentenceScaffold(
-          scene: Scene.green,
-          busy: _busy,
-          topAction: TextLink(
-            'Ya tengo cuenta',
-            onPressed: () => context.go(AppRoutes.login),
-          ),
-          action: ActionBar(
-            label: 'Crear mi cuenta',
-            busyLabel: 'Creando tu cuenta…',
-            busy: _busy,
-            onPressed: _submit,
-          ),
-          children: [
-            if (failure != null) ...[
-              Note(
-                authFailureMessage(failure),
-                action: failure is EmailAlreadyRegistered
-                    ? TextLink(
-                        'Entrar con esa cuenta',
-                        onPressed: () => context.go(
-                          AppRoutes.loginWith(
-                            email: AuthValidators.composeEmail(_matricula.text),
-                          ),
-                        ),
-                      )
-                    : null,
+    return Scaffold(
+      appBar: AppBar(title: const Text('Crear cuenta')),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      textCapitalization: TextCapitalization.words,
+                      enabled: !_submitting,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre completo',
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'Ingresa tu nombre'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      enabled: !_submitting,
+                      decoration: const InputDecoration(
+                        labelText: 'Correo institucional',
+                        helperText: 'Debe terminar en @utez.edu.mx',
+                      ),
+                      validator: (value) {
+                        final email = value?.trim() ?? '';
+                        if (!email.endsWith('@utez.edu.mx')) {
+                          return 'Usa tu correo @utez.edu.mx';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      enabled: !_submitting,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.length < 8) {
+                          return 'Mínimo 8 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _confirmController,
+                      obscureText: true,
+                      enabled: !_submitting,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmar contraseña',
+                      ),
+                      validator: (value) => value != _passwordController.text
+                          ? 'Las contraseñas no coinciden'
+                          : null,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Registrarme'),
+                    ),
+                  ],
+                ),
               ),
-              const Gap(1),
-            ],
-            const Say('Hola, soy'),
-            SentenceField(
-              key: const Key('register-name'),
-              controller: _name,
-              hint: 'tu nombre completo',
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.name],
-              validator: AuthValidators.fullName,
             ),
-            const Gap(1),
-            const Say('y mi correo es'),
-            MatriculaField(
-              key: const Key('register-matricula'),
-              controller: _matricula,
-              validator: AuthValidators.institutionalLocal,
-            ),
-            const Gap(1),
-            const Say('Mi clave será'),
-            PasswordSentenceField(
-              key: const Key('register-password'),
-              controller: _password,
-              hint: 'una clave nueva',
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.newPassword],
-              onChanged: (_) => setState(() {}),
-              validator: AuthValidators.newPassword,
-            ),
-            const SizedBox(height: 12),
-            PasswordRulesLine(password: _password.text),
-            const Gap(1),
-            const Say('y la repito'),
-            PasswordSentenceField(
-              key: const Key('register-confirm'),
-              controller: _confirm,
-              hint: 'otra vez',
-              autofillHints: const [AutofillHints.newPassword],
-              onSubmitted: (_) => _submit(),
-              validator: (v) =>
-                  AuthValidators.passwordConfirmation(v, _password.text),
-            ),
-            const Gap(1.4),
-            const Aside(
-              'Solo para alumnos y personal de la UTEZ. Te mandaremos un enlace para activar tu cuenta.',
-            ),
-          ],
+          ),
         ),
       ),
     );

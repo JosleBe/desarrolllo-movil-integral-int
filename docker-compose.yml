@@ -1,0 +1,45 @@
+# Entorno local de SRUU.
+#   docker compose up -d db mail        # solo servicios; corre el backend con ./mvnw spring-boot:run
+#   docker compose up -d --build        # todo, incluido el backend en :8080
+# Correo de prueba: http://localhost:8025 (Mailpit)
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sruu
+      POSTGRES_USER: sruu
+      POSTGRES_PASSWORD: sruu
+    ports:
+      - "55432:5432" # puerto alto en el host para no chocar con otros PostgreSQL
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sruu -d sruu"]
+      interval: 5s
+      retries: 10
+
+  mail:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # bandeja web
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
+    environment:
+      SRUU_DB_URL: jdbc:postgresql://db:5432/sruu
+      SRUU_MAIL_HOST: mail
+      SRUU_MAIL_PORT: "1025"
+      SRUU_JWT_SECRET: ${SRUU_JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+      SRUU_SEED_DEMO: "true"
+    ports:
+      - "8080:8080"
+
+volumes:
+  db-data:
