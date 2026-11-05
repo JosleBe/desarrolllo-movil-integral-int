@@ -18,10 +18,10 @@ flutter run --dart-define-from-file=env/dev.json
 cd .. && docker compose up -d --build
 flutter run -d chrome --web-port 8686 --dart-define-from-file=env/local.example.json
 ```
-El correo de verificación llega a Mailpit (http://localhost:8025) y su enlace abre `http://localhost:8686/verificar?token=…`.
+Con `USE_API=true` la autenticación usa `ApiAuthRepository` (Dio + JWT). El código de verificación de 6 dígitos llega a Mailpit (http://localhost:8025). Las demás épicas siguen con sus mocks.
 
 ### Modo demo (sin backend)
-La autenticación usa hoy `MockAuthRepository` (en memoria). Cuentas verificadas: `demo@utez.edu.mx` / `demo1234` (todos los permisos), `laura@utez.edu.mx` / `laura1234`, `pedro@utez.edu.mx` / `pedro1234`. Con `ENV=dev`, la pantalla de verificación muestra y pre-rellena el código. Para conectar el backend basta cambiar `authRepositoryProvider` en `features/auth/presentation/providers/auth_controller.dart`.
+Sin `USE_API` (o con `USE_API=false`, como en `env/dev.example.json`) la app usa `MockAuthRepository` en memoria; así corren también las pruebas. Cuentas verificadas, iguales en el mock y en el backend: `demo@utez.edu.mx` / `demo1234` (todos los permisos), `laura@utez.edu.mx` / `laura1234`, `pedro@utez.edu.mx` / `pedro1234`. Con `ENV=dev` y el mock, la pantalla de verificación muestra y pre-rellena el código.
 
 ## Autenticación (Épica 1)
 | HU | Pantalla | Archivo |

@@ -22,15 +22,15 @@ SRUU_SEED_DEMO=true ./mvnw spring-boot:run       # API en http://localhost:8080/
 | `SRUU_JWT_SECRET` | clave de desarrollo | Clave HMAC (≥ 32 bytes). **Obligatoria en producción.** |
 | `SRUU_JWT_TTL` | `8h` | Vigencia de la sesión |
 | `SRUU_MAIL_HOST` / `SRUU_MAIL_PORT` | `localhost` / `1025` | SMTP |
-| `SRUU_WEB_BASE_URL` | `http://localhost:8686` | Base del enlace de verificación del correo |
 | `SRUU_CORS_ORIGINS` | `http://localhost:*` | Orígenes permitidos |
-| `SRUU_SEED_DEMO` | `false` | Crea la cuenta demo verificada |
+| `SRUU_SEED_DEMO` | `false` | Crea (o restablece) las cuentas demo del mock de la app: demo, laura y pedro |
+| `SERVER_PORT` | `8080` | Puerto del API |
 
 ## Estructura
 ```
 mx.edu.utez.sruu
-├── auth/     # HU-01..03: registro, verificación por token, login/logout JWT
-├── user/     # Usuario, estado de cuenta y rol
+├── auth/     # HU-01..03: registro, verificación por código, login/logout JWT
+├── user/     # HU-04 perfil, permisos por cuenta (HU-05) y gestión del admin (HU-24/25)
 ├── common/   # Errores {code, message}
 └── config/   # Seguridad, CORS, propiedades, reloj, datos demo
 ```
