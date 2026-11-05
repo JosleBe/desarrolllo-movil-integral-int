@@ -34,7 +34,7 @@ management:
         include: health
 
 sruu:
-  # Solo desarrollo: crea demo@utez.edu.mx / Demo1234 verificada al arrancar.
+  # Solo desarrollo: crea las cuentas demo del equipo (demo, laura y pedro; ver DemoDataSeeder).
   seed-demo: ${SRUU_SEED_DEMO:false}
   jwt:
     # Clave HMAC de al menos 32 bytes. En producción SIEMPRE se define por variable de entorno.
@@ -43,8 +43,8 @@ sruu:
   verification:
     ttl: 24h
     resend-cooldown: 60s
-  # Dónde vive la app web; el enlace del correo apunta a <web-base-url>/verificar?token=...
-  web-base-url: ${SRUU_WEB_BASE_URL:http://localhost:8686}
+    # Intentos fallidos permitidos por código antes de exigir uno nuevo.
+    max-attempts: 5
   mail-from: ${SRUU_MAIL_FROM:SRUU UTEZ <no-reply@sruu.utez.edu.mx>}
   cors:
     allowed-origin-patterns: ${SRUU_CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*}

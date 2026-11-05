@@ -54,8 +54,17 @@ class AuthFlowTest {
                 {"fullName":"Leo Martínez","email":"%s","password":"%s"}""".formatted(email, password));
     }
 
-    ResultActions verify(String token) throws Exception {
-        return postJson("/auth/verify", "{\"token\":\"%s\"}".formatted(token));
+    ResultActions verify(String email, String code) throws Exception {
+        return postJson("/auth/verify", "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, code));
+    }
+
+    String code(String email) {
+        return mailer.lastTo(email).code();
+    }
+
+    /** Un código de 6 dígitos distinto del dado. */
+    static String otherThan(String code) {
+        return "%06d".formatted((Integer.parseInt(code) + 1) % 1_000_000);
     }
 
     ResultActions login(String email, String password) throws Exception {
@@ -64,7 +73,7 @@ class AuthFlowTest {
 
     String registerAndVerify(String email) throws Exception {
         register(email, "Segura123").andExpect(status().isCreated());
-        verify(mailer.lastTo(email).token()).andExpect(status().isOk());
+        verify(email, code(email)).andExpect(status().isOk());
         return email;
     }
 
@@ -115,6 +124,20 @@ class AuthFlowTest {
         }
 
         @Test
+        void aceptaLaReglaDeClaveDelEquipo() throws Exception {
+            // 8 caracteres o más, igual que la validación de la app.
+            register("leo@utez.edu.mx", "password1").andExpect(status().isCreated());
+        }
+
+        @Test
+        void unaCuentaNuevaNaceSinPermisosNiTelefono() throws Exception {
+            register("leo@utez.edu.mx", "Segura123")
+                    .andExpect(jsonPath("$.user.permissions.renter").value(false))
+                    .andExpect(jsonPath("$.user.permissions.seller").value(false))
+                    .andExpect(jsonPath("$.user.phone").doesNotExist());
+        }
+
+        @Test
         void rechazaClavesDebiles() throws Exception {
             register("leo@utez.edu.mx", "debil")
                     .andExpect(status().isBadRequest())
@@ -128,59 +151,90 @@ class AuthFlowTest {
     class HU02Verificacion {
 
         @Test
-        void alRegistrarseSeEnviaElTokenAlCorreo() throws Exception {
+        void alRegistrarseSeEnviaUnCodigoAlCorreo() throws Exception {
             register("leo@utez.edu.mx", "Segura123");
             final CapturingMailer.Sent mail = mailer.lastTo("leo@utez.edu.mx");
             assertThat(mail).isNotNull();
-            assertThat(mail.link()).startsWith("http://localhost:8686/verificar?token=");
-            assertThat(mail.token()).hasSizeGreaterThanOrEqualTo(43); // 256 bits en base64url
-            // En la base solo queda el hash del token.
+            assertThat(mail.code()).matches("\\d{6}");
+            // En la base solo queda el hash del código.
             assertThat(jdbc.queryForObject("select token_hash from verification_tokens", String.class))
-                    .isNotEqualTo(mail.token()).hasSize(64);
+                    .isNotEqualTo(mail.code()).hasSize(64);
         }
 
         @Test
-        void tokenVigenteVerificaConRolUsuarioBase() throws Exception {
+        void codigoVigenteVerificaConRolUsuarioBase() throws Exception {
             register("leo@utez.edu.mx", "Segura123");
-            verify(mailer.lastTo("leo@utez.edu.mx").token())
+            verify("leo@utez.edu.mx", code("leo@utez.edu.mx"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.user.status").value("VERIFICADA"))
                     .andExpect(jsonPath("$.user.role").value("USUARIO_BASE"));
         }
 
         @Test
-        void tokenYaUsadoOfreceReenviar() throws Exception {
+        void codigoYaUsadoDejaDeServir() throws Exception {
             register("leo@utez.edu.mx", "Segura123");
-            final String token = mailer.lastTo("leo@utez.edu.mx").token();
-            verify(token).andExpect(status().isOk());
-            verify(token)
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.code").value("TOKEN_ALREADY_USED"))
-                    .andExpect(jsonPath("$.email").value("leo@utez.edu.mx"));
+            final String code = code("leo@utez.edu.mx");
+            verify("leo@utez.edu.mx", code).andExpect(status().isOk());
+            verify("leo@utez.edu.mx", code)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
         }
 
         @Test
-        void tokenVencidoOfreceReenviar() throws Exception {
+        void codigoVencidoOfreceReenviar() throws Exception {
             register("leo@utez.edu.mx", "Segura123");
-            final String token = mailer.lastTo("leo@utez.edu.mx").token();
+            final String code = code("leo@utez.edu.mx");
             clock.advance(Duration.ofHours(24));
-            verify(token)
+            verify("leo@utez.edu.mx", code)
                     .andExpect(status().isGone())
                     .andExpect(jsonPath("$.code").value("TOKEN_EXPIRED"))
                     .andExpect(jsonPath("$.email").value("leo@utez.edu.mx"));
         }
 
         @Test
+        void codigoIncorrectoEsInvalido() throws Exception {
+            register("leo@utez.edu.mx", "Segura123");
+            verify("leo@utez.edu.mx", otherThan(code("leo@utez.edu.mx")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+        }
+
+        @Test
+        void elCodigoDeOtraCuentaNoSirve() throws Exception {
+            register("leo@utez.edu.mx", "Segura123");
+            register("ana@utez.edu.mx", "Segura123");
+            final String anaCode = code("ana@utez.edu.mx");
+            if (!anaCode.equals(code("leo@utez.edu.mx"))) {
+                verify("leo@utez.edu.mx", anaCode).andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+            }
+        }
+
+        @Test
+        void demasiadosIntentosBloqueanElCodigo() throws Exception {
+            register("leo@utez.edu.mx", "Segura123");
+            final String good = code("leo@utez.edu.mx");
+            for (int i = 0; i < 4; i++) {
+                verify("leo@utez.edu.mx", otherThan(good)).andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+            }
+            verify("leo@utez.edu.mx", otherThan(good))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.code").value("TOO_MANY_ATTEMPTS"));
+            // Ni el código correcto sirve ya: hay que pedir uno nuevo.
+            verify("leo@utez.edu.mx", good).andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+        }
+
+        @Test
         void reenviarInvalidaElAnteriorYElNuevoFunciona() throws Exception {
             register("leo@utez.edu.mx", "Segura123");
-            final String old = mailer.lastTo("leo@utez.edu.mx").token();
+            final String old = code("leo@utez.edu.mx");
             clock.advance(Duration.ofSeconds(61));
             postJson("/auth/verify/resend", "{\"email\":\"leo@utez.edu.mx\"}").andExpect(status().isAccepted());
-            final String fresh = mailer.lastTo("leo@utez.edu.mx").token();
+            final String fresh = code("leo@utez.edu.mx");
 
-            assertThat(fresh).isNotEqualTo(old);
-            verify(old).andExpect(jsonPath("$.code").value("TOKEN_ALREADY_USED"));
-            verify(fresh).andExpect(status().isOk());
+            if (!fresh.equals(old)) {
+                verify("leo@utez.edu.mx", old).andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+            }
+            verify("leo@utez.edu.mx", fresh).andExpect(status().isOk());
         }
 
         @Test
@@ -198,8 +252,10 @@ class AuthFlowTest {
         }
 
         @Test
-        void tokenInexistenteEsInvalido() throws Exception {
-            verify("no-existe").andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+        void correoDesconocidoRespondeIgualQueCodigoIncorrecto() throws Exception {
+            verify("nadie@utez.edu.mx", "123456")
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
         }
     }
 

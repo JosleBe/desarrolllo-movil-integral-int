@@ -37,7 +37,6 @@ services:
       SRUU_MAIL_HOST: mail
       SRUU_MAIL_PORT: "1025"
       SRUU_JWT_SECRET: ${SRUU_JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
-      SRUU_WEB_BASE_URL: ${SRUU_WEB_BASE_URL:-http://localhost:8686}
       SRUU_SEED_DEMO: "true"
     ports:
       - "8080:8080"

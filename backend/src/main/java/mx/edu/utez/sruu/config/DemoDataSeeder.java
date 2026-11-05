@@ -15,12 +15,22 @@ import mx.edu.utez.sruu.user.User;
 import mx.edu.utez.sruu.user.UserRepository;
 
 /**
- * Solo desarrollo ({@code sruu.seed-demo=true}): crea la cuenta verificada
- * demo@utez.edu.mx / Demo1234, la misma que usa el modo demo de la app.
+ * Solo desarrollo ({@code sruu.seed-demo=true}): deja listas, verificadas,
+ * las mismas cuentas que trae el mock de la app ({@code MockAuthRepository}),
+ * con sus claves y permisos. Si ya existen, restablece clave y permisos.
  */
 @Component
 @ConditionalOnProperty(name = "sruu.seed-demo", havingValue = "true")
 class DemoDataSeeder implements ApplicationRunner {
+
+    private record Demo(String email, String fullName, String password, String phone,
+                        boolean renter, boolean seller, boolean reception, boolean admin) {}
+
+    private static final Demo[] ACCOUNTS = {
+        new Demo("demo@utez.edu.mx", "Usuario Demo", "demo1234", "7771234567", true, true, true, true),
+        new Demo("laura@utez.edu.mx", "Laura M.", "laura1234", null, true, true, false, false),
+        new Demo("pedro@utez.edu.mx", "Pedro S.", "pedro1234", null, false, true, false, false),
+    };
 
     private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);
 
@@ -37,12 +47,19 @@ class DemoDataSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (users.existsByEmailIgnoreCase("demo@utez.edu.mx")) {
-            return;
+        for (final Demo demo : ACCOUNTS) {
+            final User user = users.findByEmailIgnoreCase(demo.email()).orElseGet(() ->
+                    User.pending(demo.email(), demo.fullName(), encoder.encode(demo.password()), clock.instant()));
+            if (!encoder.matches(demo.password(), user.getPasswordHash())) {
+                user.replacePasswordHash(encoder.encode(demo.password()));
+            }
+            if (!user.isVerified()) {
+                user.markVerified(clock.instant());
+            }
+            user.updateContact(null, demo.phone());
+            user.setPermissions(demo.renter(), demo.seller(), demo.reception(), demo.admin());
+            users.save(user);
+            log.info("Cuenta demo lista: {} / {}", demo.email(), demo.password());
         }
-        final User demo = User.pending("demo@utez.edu.mx", "Ana Demo Ramírez", encoder.encode("Demo1234"), clock.instant());
-        demo.markVerified(clock.instant());
-        users.save(demo);
-        log.info("Cuenta demo creada: demo@utez.edu.mx / Demo1234");
     }
 }

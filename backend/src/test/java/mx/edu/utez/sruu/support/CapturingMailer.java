@@ -8,17 +8,13 @@ import mx.edu.utez.sruu.auth.VerificationMailer;
 /** Sustituye al SMTP en pruebas y guarda los correos "enviados". */
 public class CapturingMailer implements VerificationMailer {
 
-    public record Sent(String to, String fullName, String link) {
-        public String token() {
-            return link.substring(link.indexOf("token=") + "token=".length());
-        }
-    }
+    public record Sent(String to, String fullName, String code) {}
 
     public final List<Sent> sent = new CopyOnWriteArrayList<>();
 
     @Override
-    public void send(String toEmail, String fullName, String verificationLink) {
-        sent.add(new Sent(toEmail, fullName, verificationLink));
+    public void send(String toEmail, String fullName, String code) {
+        sent.add(new Sent(toEmail, fullName, code));
     }
 
     public Sent lastTo(String email) {

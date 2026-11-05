@@ -35,7 +35,7 @@ class AuthController {
 
     @PostMapping("/verify")
     Map<String, UserResponse> verify(@Valid @RequestBody AuthRequests.Verify body) {
-        return Map.of("user", UserResponse.of(auth.verify(body.token())));
+        return Map.of("user", UserResponse.of(auth.verify(body.email(), body.code())));
     }
 
     @PostMapping("/verify/resend")

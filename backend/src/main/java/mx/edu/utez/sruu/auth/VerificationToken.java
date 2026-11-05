@@ -24,8 +24,12 @@ public class VerificationToken {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "token_hash", nullable = false, length = 64, unique = true)
+    /** SHA-256 de {@code <id de usuario>:<código>}; el código en claro solo viaja en el correo. */
+    @Column(name = "token_hash", nullable = false, length = 64)
     private String tokenHash;
+
+    @Column(name = "failed_attempts", nullable = false)
+    private int failedAttempts;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
@@ -58,6 +62,25 @@ public class VerificationToken {
 
     boolean isExpiredAt(Instant now) {
         return !now.isBefore(expiresAt);
+    }
+
+    /** Comparación en tiempo constante para no filtrar información por tiempos. */
+    boolean matches(String candidateHash) {
+        return java.security.MessageDigest.isEqual(
+                tokenHash.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                candidateHash.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+    }
+
+    boolean isLocked(int maxAttempts) {
+        return failedAttempts >= maxAttempts;
+    }
+
+    /** Cuenta un intento fallido; al llegar al límite el código deja de servir. */
+    void registerFailedAttempt(int maxAttempts, Instant now) {
+        failedAttempts++;
+        if (failedAttempts >= maxAttempts) {
+            revoke(now);
+        }
     }
 
     void markUsed(Instant now) {

@@ -1,16 +1,17 @@
 package mx.edu.utez.sruu.auth;
 
-/** Mismas reglas que muestra la app: 8–72 caracteres, mayúscula, minúscula y número. */
+/**
+ * Misma regla que la app del equipo: de 8 a 72 caracteres
+ * (72 es el máximo que BCrypt toma en cuenta).
+ */
 public final class PasswordPolicy {
+
+    public static final int MIN_LENGTH = 8;
+    public static final int MAX_LENGTH = 72;
 
     private PasswordPolicy() {}
 
     public static boolean isAcceptable(String password) {
-        if (password == null || password.length() < 8 || password.length() > 72) {
-            return false;
-        }
-        return password.chars().anyMatch(Character::isUpperCase)
-                && password.chars().anyMatch(Character::isLowerCase)
-                && password.chars().anyMatch(Character::isDigit);
+        return password != null && password.length() >= MIN_LENGTH && password.length() <= MAX_LENGTH;
     }
 }

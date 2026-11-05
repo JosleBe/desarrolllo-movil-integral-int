@@ -7,7 +7,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
@@ -75,7 +74,7 @@ class AuthService {
         }
         if (!PasswordPolicy.isAcceptable(password)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "WEAK_PASSWORD",
-                    "La clave necesita 8 caracteres o más, mayúscula, minúscula y un número.");
+                    "La contraseña debe tener entre 8 y 72 caracteres.");
         }
         if (users.existsByEmailIgnoreCase(email)) {
             throw emailTaken();
@@ -92,28 +91,43 @@ class AuthService {
 
     // ---------- HU-02 ----------
 
+    /**
+     * Valida el código vigente de la cuenta. Solo sirve el último código
+     * enviado, una vez, antes de vencer y con un máximo de intentos fallidos.
+     * Correo desconocido, cuenta ya verificada y código incorrecto responden
+     * igual para no revelar qué cuentas existen.
+     */
     @Transactional(noRollbackFor = ApiException.class)
-    User verify(String token) {
-        final VerificationToken record = verificationTokens.findByTokenHash(sha256(token))
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "TOKEN_INVALID",
-                        "El enlace no es válido."));
-        final User user = record.getUser();
+    User verify(String rawEmail, String code) {
+        final User user = users.findByEmailIgnoreCase(InstitutionalEmail.normalize(rawEmail))
+                .filter(u -> !u.isVerified())
+                .orElseThrow(AuthService::invalidCode);
+        final VerificationToken current = verificationTokens.findByUserNewestFirst(user.getId()).stream()
+                .findFirst()
+                .filter(t -> !t.isConsumed())
+                .orElseThrow(AuthService::invalidCode);
         final Map<String, Object> email = Map.of("email", user.getEmail());
-        if (record.isConsumed()) {
-            throw new ApiException(HttpStatus.CONFLICT, "TOKEN_ALREADY_USED", "Este enlace ya se usó.", email);
-        }
         final Instant now = clock.instant();
-        if (record.isExpiredAt(now)) {
-            throw new ApiException(HttpStatus.GONE, "TOKEN_EXPIRED", "Este enlace venció.", email);
+        if (current.isExpiredAt(now)) {
+            throw new ApiException(HttpStatus.GONE, "TOKEN_EXPIRED", "Este código venció.", email);
         }
-        record.markUsed(now);
+        final int maxAttempts = props.verification().maxAttempts();
+        if (!current.matches(codeHash(user, code.trim()))) {
+            current.registerFailedAttempt(maxAttempts, now);
+            if (current.isLocked(maxAttempts)) {
+                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_ATTEMPTS",
+                        "Demasiados intentos. Pide un código nuevo.", email);
+            }
+            throw invalidCode();
+        }
+        current.markUsed(now);
         user.markVerified(now);
         return user;
     }
 
     /**
      * Responde igual exista o no la cuenta (no revela correos registrados).
-     * Invalida los enlaces anteriores y respeta un tiempo de espera.
+     * Invalida los códigos anteriores y respeta un tiempo de espera.
      */
     @Transactional
     void resend(String rawEmail) {
@@ -127,7 +141,7 @@ class AuthService {
         final Duration cooldown = props.verification().resendCooldown();
         if (!existing.isEmpty() && Duration.between(existing.getFirst().getCreatedAt(), now).compareTo(cooldown) < 0) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED",
-                    "Ya te mandamos un enlace hace poco. Espera un minuto.");
+                    "Ya te mandamos un código hace poco. Espera un minuto.");
         }
         existing.forEach(t -> t.revoke(now));
         issueVerification(user);
@@ -173,13 +187,21 @@ class AuthService {
     // ---------- helpers ----------
 
     private void issueVerification(User user) {
-        final byte[] bytes = new byte[32]; // 256 bits
-        RANDOM.nextBytes(bytes);
-        final String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        final String code = "%06d".formatted(RANDOM.nextInt(1_000_000));
         final Instant now = clock.instant();
         verificationTokens.save(VerificationToken.issue(
-                user, sha256(token), now, now.plus(props.verification().ttl())));
-        events.publishEvent(new VerificationRequested(user.getEmail(), user.getFullName(), token));
+                user, codeHash(user, code), now, now.plus(props.verification().ttl())));
+        events.publishEvent(new VerificationRequested(user.getEmail(), user.getFullName(), code));
+    }
+
+    /** El hash incluye la cuenta: el mismo código en otra cuenta no coincide. */
+    private static String codeHash(User user, String code) {
+        return sha256(user.getId() + ":" + code);
+    }
+
+    private static ApiException invalidCode() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "TOKEN_INVALID",
+                "El código de verificación no es válido o ya expiró.");
     }
 
     private static ApiException emailTaken() {

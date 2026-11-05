@@ -23,11 +23,12 @@ class InstitutionalEmailTest {
     }
 
     @Test
-    void politicaDeClave() {
+    void politicaDeClaveIgualALaApp() {
         assertThat(PasswordPolicy.isAcceptable("Segura123")).isTrue();
+        assertThat(PasswordPolicy.isAcceptable("password1")).isTrue();
+        assertThat(PasswordPolicy.isAcceptable("a".repeat(72))).isTrue();
         assertThat(PasswordPolicy.isAcceptable("corta1A")).isFalse();
-        assertThat(PasswordPolicy.isAcceptable("sinnumeroA")).isFalse();
-        assertThat(PasswordPolicy.isAcceptable("sinmayus1")).isFalse();
-        assertThat(PasswordPolicy.isAcceptable("A1" + "a".repeat(71))).isFalse();
+        assertThat(PasswordPolicy.isAcceptable("a".repeat(73))).isFalse();
+        assertThat(PasswordPolicy.isAcceptable(null)).isFalse();
     }
 }

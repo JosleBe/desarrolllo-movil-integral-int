@@ -9,14 +9,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record SruuProperties(
         Jwt jwt,
         Verification verification,
-        String webBaseUrl,
         String mailFrom,
         Cors cors,
         boolean seedDemo) {
 
     public record Jwt(String secret, Duration ttl) {}
 
-    public record Verification(Duration ttl, Duration resendCooldown) {}
+    public record Verification(Duration ttl, Duration resendCooldown, int maxAttempts) {}
 
     public record Cors(List<String> allowedOriginPatterns) {}
 }
