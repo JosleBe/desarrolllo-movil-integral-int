@@ -13,6 +13,13 @@ flutter run --dart-define-from-file=env/dev.json
 ```
 > En el emulador de Android, `10.0.2.2` apunta al `localhost` de tu máquina.
 
+### Contra el backend real
+```bash
+cd .. && docker compose up -d --build
+flutter run -d chrome --web-port 8686 --dart-define-from-file=env/local.example.json
+```
+El correo de verificación llega a Mailpit (http://localhost:8025) y su enlace abre `http://localhost:8686/verificar?token=…`.
+
 ### Modo demo (sin backend)
 La autenticación usa hoy `MockAuthRepository` (en memoria). Cuentas verificadas: `demo@utez.edu.mx` / `demo1234` (todos los permisos), `laura@utez.edu.mx` / `laura1234`, `pedro@utez.edu.mx` / `pedro1234`. Con `ENV=dev`, la pantalla de verificación muestra y pre-rellena el código. Para conectar el backend basta cambiar `authRepositoryProvider` en `features/auth/presentation/providers/auth_controller.dart`.
 
