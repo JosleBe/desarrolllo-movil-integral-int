@@ -1,46 +1,113 @@
 import 'package:flutter/material.dart';
 
-/// Tipografía y tema base. El color de cada pantalla lo decide su [Scene]
-/// (ver `core/widgets/sentence.dart`), no el tema.
 abstract final class AppTheme {
-  static const displayFamily = 'Bricolage';
-  static const bodyFamily = 'Atkinson';
-
-  static const utezGreen = Color(0xFF009475);
+  // Verde institucional UTEZ; ajústalo a la paleta oficial si cambia.
+  static const Color _seed = Color(0xFF009475);
 
   static final ThemeData light = _build(Brightness.light);
   static final ThemeData dark = _build(Brightness.dark);
 
-  /// Bricolage es variable: el peso se fija con el eje `wght` y el tamaño
-  /// óptico con `opsz`.
-  static TextStyle display(
-    double size, {
-    double weight = 600,
-    double height = 1.08,
-    Color? color,
-  }) => TextStyle(
-    fontFamily: displayFamily,
-    fontSize: size,
-    height: height,
-    color: color,
-    letterSpacing: -0.025 * size,
-    fontVariations: [
-      FontVariation.weight(weight),
-      FontVariation('opsz', size.clamp(12, 96)),
-    ],
-  );
-
   static ThemeData _build(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: utezGreen,
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: _seed,
       brightness: brightness,
     );
+
+    final baseRadius = BorderRadius.circular(14);
+
     return ThemeData(
-      brightness: brightness,
-      colorScheme: scheme,
+      colorScheme: colorScheme,
       useMaterial3: true,
-      fontFamily: bodyFamily,
-      splashFactory: InkRipple.splashFactory,
+
+      // Transiciones de página animadas (deslizan suave al navegar).
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+        },
+      ),
+
+      // Inputs redondeados y compactos.
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        border: OutlineInputBorder(borderRadius: baseRadius),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: baseRadius,
+          borderSide: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: baseRadius,
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        ),
+      ),
+
+      // Botones principales: altos, redondeados y con buen tacto.
+      // minimumSize fija la altura (50) sin forzar ancho infinito, para que
+      // los FilledButton funcionen tanto a ancho completo como dentro de
+      // una fila (Row) sin romper el layout.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 50),
+          shape: RoundedRectangleBorder(borderRadius: baseRadius),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: baseRadius),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: baseRadius),
+        ),
+      ),
+
+      // Tarjetas con elevación suave y esquinas redondeadas.
+      cardTheme: CardThemeData(
+        elevation: 1.5,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        margin: EdgeInsets.zero,
+      ),
+
+      // Chips con esquinas redondeadas.
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+
+      // FAB redondeado.
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      // Barra de navegación con indicador destacado.
+      navigationBarTheme: NavigationBarThemeData(
+        elevation: 3,
+        backgroundColor: colorScheme.surface,
+        indicatorColor: colorScheme.primaryContainer,
+        labelTextStyle: WidgetStateProperty.all(
+          const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+        ),
+      ),
+
+      // SnackBars flotantes y redondeados.
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }

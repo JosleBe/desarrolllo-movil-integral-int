@@ -2,141 +2,172 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/router/app_routes.dart';
-import '../../../core/widgets/sentence.dart';
-import '../data/auth_repository.dart';
-import '../domain/auth_models.dart';
-import 'widgets/auth_widgets.dart';
+import '../../../core/config/env.dart';
+import '../../../core/router/app_router.dart';
+import 'providers/auth_controller.dart';
 
-/// HU-02: destino del enlace del correo (`/verificar?token=...`).
+/// Argumentos para la pantalla de verificación.
+class VerifyArgs {
+  const VerifyArgs({required this.email, this.devToken});
+
+  final String email;
+
+  /// Token mostrado solo en desarrollo (en producción llega por correo).
+  final String? devToken;
+}
+
+/// Verificación del correo por token (HU-02).
+///
+/// Permite confirmar la cuenta con el token, reenviar uno nuevo si venció
+/// o ya se usó, y al verificar regresa al login para iniciar sesión.
 class VerifyEmailPage extends ConsumerStatefulWidget {
-  const VerifyEmailPage({super.key, required this.token});
+  const VerifyEmailPage({required this.args, super.key});
 
-  final String? token;
+  final VerifyArgs args;
 
   @override
   ConsumerState<VerifyEmailPage> createState() => _VerifyEmailPageState();
 }
 
 class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
-  late Future<AuthUser> _result = _verify();
+  final _tokenController = TextEditingController();
+  String? _devToken;
 
   @override
-  void didUpdateWidget(VerifyEmailPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.token != widget.token) _result = _verify();
-  }
-
-  Future<AuthUser> _verify() {
-    final token = widget.token;
-    if (token == null || token.isEmpty) {
-      return Future.error(const VerificationTokenInvalid());
+  void initState() {
+    super.initState();
+    _devToken = widget.args.devToken;
+    // En desarrollo, pre-rellena el token para agilizar la prueba.
+    if (Env.isDev && _devToken != null) {
+      _tokenController.text = _devToken!;
     }
-    return ref.read(authRepositoryProvider).verifyEmail(token);
   }
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<AuthUser>(
-      future: _result,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const SentenceScaffold(
-            scene: Scene.indigo,
-            busy: true,
-            children: [Say('Revisando tu enlace…')],
-          );
-        }
-        if (snapshot.hasData) return _Verified(user: snapshot.data!);
-        final error = snapshot.error;
-        return _Rejected(
-          failure: error is AuthFailure ? error : const UnexpectedFailure(),
+  void dispose() {
+    _tokenController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .verifyEmail(email: widget.args.email, token: _tokenController.text);
+
+    if (!mounted) return;
+    if (ok) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Cuenta verificada. Ya puedes iniciar sesión.'),
+          ),
         );
-      },
-    );
+      router.go(AppRoutes.login);
+    } else {
+      final message = ref.read(authControllerProvider).errorMessage;
+      if (message != null) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
   }
-}
 
-class _Verified extends StatelessWidget {
-  const _Verified({required this.user});
-
-  final AuthUser user;
+  Future<void> _resend() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final token = await ref
+          .read(authRepositoryProvider)
+          .resendVerificationToken(email: widget.args.email);
+      if (!mounted) return;
+      setState(() {
+        _devToken = token;
+        if (Env.isDev) _tokenController.text = token;
+      });
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Te enviamos un nuevo código.')),
+        );
+    } on Exception catch (e) {
+      final message = e.toString().replaceFirst('AuthException: ', '');
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SentenceScaffold(
-      scene: Scene.green,
-      action: ActionBar(
-        label: 'Entrar a SRUU',
-        onPressed: () => context.go(AppRoutes.loginWith(email: user.email)),
-      ),
-      children: [
-        Say.rich([
-          const TextSpan(text: 'Listo, '),
-          you(user.firstName),
-          const TextSpan(text: '.'),
-        ]),
-        const Gap(0.6),
-        Say.rich([
-          const TextSpan(text: 'Tu cuenta está '),
-          you('verificada'),
-          const TextSpan(text: ' y tu rol es '),
-          you('Usuario Base'),
-          const TextSpan(text: '.'),
-        ]),
-        const Gap(1.2),
-        Aside(
-          'Confirmamos que ${user.email} es tuyo. Ya puedes explorar el catálogo; los permisos para rentar o publicar se activan aparte.',
+    final state = ref.watch(authControllerProvider);
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Verifica tu correo')),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Enviamos un código de verificación a:',
+                    style: textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.args.email,
+                    style: textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  if (Env.isDev && _devToken != null)
+                    Card(
+                      color: Theme.of(context).colorScheme.surfaceContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          'Modo desarrollo — código: $_devToken',
+                          style: textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _tokenController,
+                    keyboardType: TextInputType.number,
+                    enabled: !state.isLoading,
+                    decoration: const InputDecoration(
+                      labelText: 'Código de verificación',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: state.isLoading ? null : _verify,
+                    child: state.isLoading
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Verificar'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: state.isLoading ? null : _resend,
+                    child: const Text('Reenviar código'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ],
-    );
-  }
-}
-
-class _Rejected extends StatefulWidget {
-  const _Rejected({required this.failure});
-
-  final AuthFailure failure;
-
-  @override
-  State<_Rejected> createState() => _RejectedState();
-}
-
-class _RejectedState extends State<_Rejected> {
-  @override
-  Widget build(BuildContext context) {
-    final failure = widget.failure;
-    final (headline, email) = switch (failure) {
-      VerificationTokenExpired(:final email) => (
-        'Ese enlace ya venció.',
-        email,
       ),
-      VerificationTokenAlreadyUsed(:final email) => (
-        'Ese enlace ya se usó.',
-        email,
-      ),
-      VerificationTokenInvalid() => ('Ese enlace no es válido.', null),
-      _ => ('No pudimos revisar tu enlace.', null),
-    };
-
-    return SentenceScaffold(
-      scene: Scene.red,
-      topAction: TextLink(
-        'Volver a entrar',
-        onPressed: () => context.go(AppRoutes.loginWith(email: email)),
-      ),
-      children: [
-        Say(headline),
-        const Gap(0.6),
-        Aside(authFailureMessage(failure)),
-        const Gap(1),
-        ResendVerification(
-          email: email,
-          label: 'Mándame uno nuevo',
-          onSent: () => setState(() {}),
-        ),
-        if (email != null) DemoOutbox(email: email),
-      ],
     );
   }
 }
