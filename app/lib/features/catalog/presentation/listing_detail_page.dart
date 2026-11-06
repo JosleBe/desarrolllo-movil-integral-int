@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../rentals/presentation/rent_request_page.dart';
 import '../domain/listing.dart';
 import 'price_format.dart';
 import 'providers/catalog_providers.dart';
@@ -84,13 +85,11 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: listing.isRentable
-              ? () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Solicitud de renta (se conecta con la Épica 3 - Rentas)'),
-                    ),
-                  );
-                }
+              ? () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RentRequestPage(listing: listing),
+                  ),
+                )
               : null,
           icon: const Icon(Icons.shopping_cart_outlined),
           label: Text(

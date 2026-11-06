@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../catalog/presentation/my_listings_page.dart';
 import '../../rentals/presentation/my_bookings_page.dart';
+import '../../rentals/presentation/my_rentals_page.dart';
 import '../domain/user_permissions.dart';
 import 'providers/auth_controller.dart';
 
@@ -237,6 +238,17 @@ class _HistoryCard extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const MyBookingsPage(),
+                ),
+              ),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.move_to_inbox_outlined),
+              title: const Text('Solicitudes recibidas'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const MyRentalsPage(),
                 ),
               ),
             ),
