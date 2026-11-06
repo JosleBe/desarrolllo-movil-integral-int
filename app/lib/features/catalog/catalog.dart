@@ -1,6 +1,8 @@
 /// Épica 2: Catálogo y Publicaciones (Josué — HU-05 a HU-12).
 ///
 /// Exportación centralizada de las capas de dominio, datos y presentación del catálogo.
+library;
+
 export 'domain/catalog_enums.dart';
 export 'domain/catalog_filters.dart';
 export 'domain/listing.dart';
