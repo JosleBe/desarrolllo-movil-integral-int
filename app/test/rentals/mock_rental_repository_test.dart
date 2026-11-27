@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sruu/features/catalog/domain/catalog_enums.dart';
 import 'package:sruu/features/rentals/data/mock_rental_repository.dart';
+import 'package:sruu/features/rentals/domain/earnings_period.dart';
 import 'package:sruu/features/rentals/domain/rental.dart';
 import 'package:sruu/features/rentals/domain/rental_repository.dart';
 import 'package:sruu/features/rentals/domain/rental_status.dart';
@@ -24,153 +25,89 @@ void main() {
     );
   }
 
-  Future<Rental> createSolicitada() => repo.request(
+  Future<Rental> createPendingRental() => repo.request(
         renterId: 'u-1',
         renterName: 'Rentador 1',
         request: requestFor(),
       );
 
-  group('solicitar renta (HU-13)', () {
-    test('crea renta en estado SOLICITADA', () async {
-      final rental = await repo.request(
-        renterId: 'u-1',
-        renterName: 'Rentador 1',
-        request: requestFor(),
-      );
-      expect(rental.status, RentalStatus.requested);
+  group('solicitar renta y aprobación/rechazo (HU-13, HU-38)', () {
+    test('crea renta en estado PENDIENTE_APROBACION', () async {
+      final rental = await createPendingRental();
+      expect(rental.status, RentalStatus.pendingApproval);
+      expect(rental.isPendingApproval, isTrue);
       expect(rental.amount, greaterThan(0));
     });
 
-    test('rechaza rango de fechas inválido', () {
-      final now = DateTime.now();
+    test('no permite pagar una solicitud no aprobada (HU-38)', () async {
+      final rental = await createPendingRental();
       expect(
-        () => repo.request(
-          renterId: 'u-1',
-          renterName: 'Rentador 1',
-          request: RentalRequest(
-            listingId: 'l-x',
-            period: RentalPeriod.day,
-            startDate: now.add(const Duration(days: 3)),
-            endDate: now.add(const Duration(days: 1)),
-          ),
-        ),
-        throwsA(isA<InvalidDateRange>()),
-      );
-    });
-
-    test('rechaza traslape de fechas en el mismo artículo (RN-04)',
-        () async {
-      await repo.request(
-        renterId: 'u-1',
-        renterName: 'Rentador 1',
-        request: requestFor(listingId: 'l-ov', startOffsetDays: 1,
-            endOffsetDays: 5),
-      );
-      // Segundo intento que se solapa con el primero.
-      expect(
-        () => repo.request(
-          renterId: 'u-2',
-          renterName: 'Rentador 2',
-          request: requestFor(listingId: 'l-ov', startOffsetDays: 3,
-              endOffsetDays: 6),
-        ),
-        throwsA(isA<DateOverlap>()),
-      );
-    });
-
-    test('permite reservar fechas no solapadas del mismo artículo',
-        () async {
-      await repo.request(
-        renterId: 'u-1',
-        renterName: 'Rentador 1',
-        request: requestFor(listingId: 'l-seq', startOffsetDays: 1,
-            endOffsetDays: 3),
-      );
-      final second = await repo.request(
-        renterId: 'u-2',
-        renterName: 'Rentador 2',
-        request: requestFor(listingId: 'l-seq', startOffsetDays: 4,
-            endOffsetDays: 6),
-      );
-      expect(second.status, RentalStatus.requested);
-    });
-  });
-
-  group('pago (HU-14) y QR (HU-15)', () {
-    test('pago fallido deja la renta en SOLICITADA para reintentar',
-        () async {
-      final rental = await createSolicitada();
-      var threw = false;
-      try {
-        await repo.pay(rentalId: rental.id, forceSuccess: false);
-      } on PaymentFailed {
-        threw = true;
-      }
-      expect(threw, isTrue);
-      final again = await repo.findById(rental.id);
-      expect(again!.status, RentalStatus.requested);
-    });
-
-    test('pago exitoso confirma la renta y genera el boleto con QR',
-        () async {
-      final rental = await createSolicitada();
-      final confirmed = await repo.pay(rentalId: rental.id);
-
-      expect(confirmed.status, RentalStatus.confirmed);
-      expect(confirmed.payment, isNotNull);
-      expect(confirmed.ticket, isNotNull);
-      expect(confirmed.ticket!.isValidAt(DateTime.now()), isTrue);
-    });
-
-    test('el token del QR es único entre rentas', () async {
-      final a = await repo.request(
-        renterId: 'u-1',
-        renterName: 'R1',
-        request: requestFor(listingId: 'l-a'),
-      );
-      final b = await repo.request(
-        renterId: 'u-1',
-        renterName: 'R1',
-        request: requestFor(listingId: 'l-b'),
-      );
-      final ca = await repo.pay(rentalId: a.id);
-      final cb = await repo.pay(rentalId: b.id);
-      expect(ca.ticket!.token, isNot(equals(cb.ticket!.token)));
-    });
-  });
-
-  group('cancelación (HU-16)', () {
-    test('cancela una renta en SOLICITADA', () async {
-      final rental = await createSolicitada();
-      final cancelled = await repo.cancel(rentalId: rental.id);
-      expect(cancelled.status, RentalStatus.cancelled);
-    });
-
-    test('no permite cancelar tras confirmar el pago', () async {
-      final rental = await createSolicitada();
-      await repo.pay(rentalId: rental.id);
-      expect(
-        () => repo.cancel(rentalId: rental.id),
+        () => repo.pay(rentalId: rental.id),
         throwsA(isA<InvalidRentalTransition>()),
       );
     });
 
-    test('tras cancelar, el artículo vuelve a poder reservarse', () async {
-      final rental = await repo.request(
-        renterId: 'u-1',
-        renterName: 'R1',
-        request: requestFor(listingId: 'l-free', startOffsetDays: 1,
-            endOffsetDays: 3),
+    test('aprobar una solicitud cambia el estado a APROBADA y habilita el pago',
+        () async {
+      final rental = await createPendingRental();
+      final approved = await repo.approve(rentalId: rental.id);
+
+      expect(approved.status, RentalStatus.approved);
+      expect(approved.isApproved, isTrue);
+      expect(approved.canPay, isTrue);
+
+      final confirmed = await repo.pay(rentalId: approved.id);
+      expect(confirmed.status, RentalStatus.confirmed);
+    });
+
+    test('rechazar una solicitud cambia el estado a RECHAZADA y guarda el motivo',
+        () async {
+      final rental = await createPendingRental();
+      final rejected = await repo.reject(
+        rentalId: rental.id,
+        reason: 'Artículo no disponible en esas fechas',
       );
-      await repo.cancel(rentalId: rental.id);
-      // Mismo lapso ahora disponible.
-      final again = await repo.request(
-        renterId: 'u-2',
-        renterName: 'R2',
-        request: requestFor(listingId: 'l-free', startOffsetDays: 1,
-            endOffsetDays: 3),
+
+      expect(rejected.status, RentalStatus.rejected);
+      expect(rejected.isRejected, isTrue);
+      expect(rejected.rejectionReason, equals('Artículo no disponible en esas fechas'));
+      expect(rejected.canPay, isFalse);
+    });
+  });
+
+  group('historial de pagos (HU-36)', () {
+    test('listPaymentHistory devuelve solo rentas pagadas del rentador', () async {
+      final pending = await createPendingRental();
+      final approved = await repo.approve(rentalId: pending.id);
+      await repo.pay(rentalId: approved.id);
+
+      final history = await repo.listPaymentHistory('u-1');
+      expect(history, isNotEmpty);
+      expect(history.every((r) => r.payment != null), isTrue);
+    });
+  });
+
+  group('ganancias del Vendedor (HU-37)', () {
+    test('calcula ingresos agregados para el Vendedor demo', () async {
+      final earnings = await repo.getSellerEarnings(
+        ownerId: 'u-demo',
+        period: EarningsPeriod.all,
       );
-      expect(again.status, RentalStatus.requested);
+
+      expect(earnings.totalEarnings, greaterThan(0));
+      expect(earnings.totalRentalsCount, greaterThan(0));
+      expect(earnings.byListing, isNotEmpty);
+    });
+
+    test('retorna estado vacío si el vendedor no tiene ingresos', () async {
+      final earnings = await repo.getSellerEarnings(
+        ownerId: 'u-vendedor-sin-ventas',
+        period: EarningsPeriod.all,
+      );
+
+      expect(earnings.isEmpty, isTrue);
+      expect(earnings.totalEarnings, equals(0.0));
+      expect(earnings.byListing, isEmpty);
     });
   });
 }

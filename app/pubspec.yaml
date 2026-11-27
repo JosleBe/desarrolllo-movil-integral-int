@@ -8,12 +8,17 @@ environment:
 
 dependencies:
   dio: ^5.11.1
+  fl_chart: ^0.70.2
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.4.3
   flutter_secure_storage: ^11.2.0
   go_router: ^18.1.1
+  path_provider: ^2.1.5
+  pdf: ^3.11.1
+  printing: ^5.13.3
   qr_flutter: ^4.1.0
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:

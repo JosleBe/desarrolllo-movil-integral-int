@@ -6,6 +6,8 @@
 ///
 /// Excepcionales: CANCELADA, RECHAZADA, INCIDENCIA.
 enum RentalStatus {
+  pendingApproval('Pendiente de aprobación'),
+  approved('Aprobada'),
   requested('Solicitada'),
   paid('Pagada'),
   confirmed('Confirmada'),

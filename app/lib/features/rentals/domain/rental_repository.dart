@@ -1,5 +1,7 @@
 import '../../catalog/domain/catalog_enums.dart';
+import 'earnings_period.dart';
 import 'rental.dart';
+import 'seller_earnings.dart';
 
 /// Errores de dominio de las rentas (Épica 3).
 sealed class RentalException implements Exception {
@@ -48,7 +50,7 @@ class RentalRequest {
 
 /// Contrato de rentas (capa domain).
 abstract interface class RentalRepository {
-  /// Solicita una renta en estado SOLICITADA (HU-13).
+  /// Solicita una renta en estado PENDIENTE_APROBACION (HU-13, HU-38).
   ///
   /// Valida el rango y el traslape de fechas (RN-04): si el artículo ya
   /// está reservado en ese lapso, lanza [DateOverlap].
@@ -58,20 +60,39 @@ abstract interface class RentalRepository {
     required RentalRequest request,
   });
 
-  /// Paga una renta en SOLICITADA (HU-14). Simula la pasarela: si
+  /// Aprueba una solicitud de renta en PENDIENTE_APROBACION (HU-38).
+  /// Habilita la renta para ser pagada por el Rentador.
+  Future<Rental> approve({required String rentalId});
+
+  /// Rechaza una solicitud de renta en PENDIENTE_APROBACION (HU-38).
+  /// Permite especificar un motivo opcional de rechazo.
+  Future<Rental> reject({required String rentalId, String? reason});
+
+  /// Paga una renta en estado APROBADA (HU-14, HU-38). Simula la pasarela: si
   /// [forceSuccess] es false, falla con [PaymentFailed] para probar el
   /// reintento. Con éxito, transiciona PAGADA → CONFIRMADA y genera el
   /// boleto con QR (HU-15).
   Future<Rental> pay({required String rentalId, bool forceSuccess = true});
 
-  /// Cancela una renta en estado SOLICITADA (HU-16). Libera la reserva.
+  /// Cancela una renta no pagada (HU-16). Libera la reserva.
   Future<Rental> cancel({required String rentalId});
 
   /// Rentas del rentador dado.
   Future<List<Rental>> listForRenter(String renterId);
 
+  /// Historial de pagos realizados por un rentador (HU-36).
+  /// Devuelve la lista de rentas pagadas ordenadas del más reciente al más antiguo.
+  Future<List<Rental>> listPaymentHistory(String renterId);
+
   /// Rentas de los artículos de un vendedor (HU-12).
   Future<List<Rental>> listForSeller(String ownerId);
+
+  /// Calcula los ingresos agregados del Vendedor por periodo y artículo (HU-37).
+  Future<SellerEarnings> getSellerEarnings({
+    required String ownerId,
+    EarningsPeriod period = EarningsPeriod.all,
+    String? listingId,
+  });
 
   /// Devuelve una renta por id.
   Future<Rental?> findById(String rentalId);

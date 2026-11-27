@@ -9,6 +9,8 @@ import '../../features/auth/presentation/verify_email_page.dart';
 import '../../features/auth/presentation/providers/auth_controller.dart';
 import '../../features/catalog/presentation/listing_detail_page.dart';
 import '../../features/home/presentation/home_shell.dart';
+import '../../features/rentals/presentation/payment_history_page.dart';
+import '../../features/rentals/presentation/seller_earnings_page.dart';
 import 'app_routes.dart';
 
 export 'app_routes.dart';
@@ -65,6 +67,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.profile,
         builder: (context, state) => const ProfilePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.paymentHistory,
+        builder: (context, state) => const PaymentHistoryPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.sellerEarnings,
+        builder: (context, state) => const SellerEarningsPage(),
       ),
       GoRoute(
         path: '${AppRoutes.listing}/:id',

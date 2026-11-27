@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../catalog/presentation/my_listings_page.dart';
 import '../../rentals/presentation/my_bookings_page.dart';
 import '../../rentals/presentation/my_rentals_page.dart';
+import '../../rentals/presentation/payment_history_page.dart';
+import '../../rentals/presentation/seller_earnings_page.dart';
 import '../domain/user_permissions.dart';
 import 'providers/auth_controller.dart';
 
@@ -252,6 +254,31 @@ class _HistoryCard extends StatelessWidget {
                 ),
               ),
             ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('Historial de pagos y comprobantes'),
+              subtitle: const Text('Descarga comprobantes en PDF'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PaymentHistoryPage(),
+                ),
+              ),
+            ),
+            if (permissions.seller)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.insights_outlined),
+                title: const Text('Mis ganancias e ingresos'),
+                subtitle: const Text('Métricas y rendimiento por artículo'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SellerEarningsPage(),
+                  ),
+                ),
+              ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.inventory_2_outlined),

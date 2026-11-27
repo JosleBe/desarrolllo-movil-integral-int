@@ -29,7 +29,8 @@ void main() {
         endDate: now.add(const Duration(days: 3)),
       ),
     );
-    final confirmed = await repo.pay(rentalId: requested.id);
+    final approved = await repo.approve(rentalId: requested.id);
+    final confirmed = await repo.pay(rentalId: approved.id);
     return (confirmed, confirmed.ticket!.payload);
   }
 
