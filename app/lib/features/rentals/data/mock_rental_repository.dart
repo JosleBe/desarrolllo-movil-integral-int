@@ -1,23 +1,28 @@
 import '../../catalog/domain/catalog_enums.dart';
+import '../domain/earnings_period.dart';
+import '../domain/notification_service.dart';
 import '../domain/payment.dart';
 import '../domain/qr_ticket.dart';
 import '../domain/rental.dart';
 import '../domain/rental_repository.dart';
 import '../domain/rental_status.dart';
+import '../domain/seller_earnings.dart';
 
-/// Implementación en memoria de [RentalRepository] para trabajar sin
-/// backend. Valida el traslape de fechas (RN-04) de forma real, aplica las
-/// transiciones de estado del flujo del DFR, simula el pago y genera un
-/// boleto con QR único tras la confirmación (HU-15).
+/// Implementación en memoria de [RentalRepository] para trabajar sin backend.
 class MockRentalRepository implements RentalRepository {
-  MockRentalRepository() {
+  MockRentalRepository({NotificationService? notificationService})
+      : _notificationService =
+            notificationService ?? const MockNotificationService() {
     _seed();
   }
 
   static const _delay = Duration(milliseconds: 400);
+  final NotificationService _notificationService;
 
   /// Estados que ocupan el artículo y por tanto cuentan para el traslape.
   static const _blockingStates = {
+    RentalStatus.pendingApproval,
+    RentalStatus.approved,
     RentalStatus.requested,
     RentalStatus.paid,
     RentalStatus.confirmed,
@@ -32,8 +37,9 @@ class MockRentalRepository implements RentalRepository {
 
   void _seed() {
     final now = DateTime.now();
-    // Una renta de ejemplo del Vendedor demo, ya en curso.
-    final rental = Rental(
+    // 1. Renta en curso
+    final paidAt1 = now.subtract(const Duration(days: 2));
+    final r1 = Rental(
       id: _nextId(),
       listingId: 'l-0',
       listingTitle: 'Calculadora científica Casio fx-991',
@@ -46,12 +52,16 @@ class MockRentalRepository implements RentalRepository {
       endDate: now.add(const Duration(days: 2)),
       amount: 75,
       status: RentalStatus.onRent,
+      payment: Payment(
+        reference: 'PAY-DEMO-001',
+        amount: 75,
+        paidAt: paidAt1,
+      ),
     );
-    _rentals[rental.id] = rental;
+    _rentals[r1.id] = r1;
 
-    // Renta CONFIRMADA con boleto QR válido, lista para el flujo de
-    // Recepción (recibir → entregar). El payload del QR se puede copiar
-    // desde el boleto o usar el que imprime este seed para probar HU-18.
+    // 2. Renta CONFIRMADA con boleto QR válido
+    final paidAt2 = now.subtract(const Duration(hours: 5));
     final confirmed = Rental(
       id: _nextId(),
       listingId: 'l-3',
@@ -65,14 +75,34 @@ class MockRentalRepository implements RentalRepository {
       endDate: now.add(const Duration(days: 3)),
       amount: 120,
       status: RentalStatus.confirmed,
+      payment: Payment(
+        reference: 'PAY-DEMO-002',
+        amount: 120,
+        paidAt: paidAt2,
+      ),
     );
     final ticket = _generateTicket(confirmed);
     _rentals[confirmed.id] = confirmed.copyWith(ticket: ticket);
     seedPickupPayload = ticket.payload;
+
+    // 3. Renta en PENDIENTE_APROBACION para probar HU-38
+    final pending = Rental(
+      id: _nextId(),
+      listingId: 'l-1',
+      listingTitle: 'Bata de laboratorio',
+      renterId: 'u-demo',
+      renterName: 'Usuario Demo',
+      ownerId: 'u-laura',
+      ownerName: 'Laura P.',
+      period: RentalPeriod.day,
+      startDate: now.add(const Duration(days: 1)),
+      endDate: now.add(const Duration(days: 2)),
+      amount: 40,
+      status: RentalStatus.pendingApproval,
+    );
+    _rentals[pending.id] = pending;
   }
 
-  /// Payload del QR de la renta confirmada del seed, para pruebas de
-  /// Recepción (HU-18): se puede pegar en el escáner manual.
   String seedPickupPayload = '';
 
   String _nextId() => 'r-${_idCounter++}';
@@ -89,8 +119,6 @@ class MockRentalRepository implements RentalRepository {
       throw const InvalidDateRange();
     }
 
-    // RN-04: no permitir traslape con otra reserva vigente del mismo
-    // artículo.
     final overlaps = _rentals.values.any(
       (r) =>
           r.listingId == request.listingId &&
@@ -117,10 +145,58 @@ class MockRentalRepository implements RentalRepository {
       startDate: request.startDate,
       endDate: request.endDate,
       amount: amount,
-      status: RentalStatus.requested,
+      status: RentalStatus.pendingApproval,
     );
     _rentals[rental.id] = rental;
     return rental;
+  }
+
+  @override
+  Future<Rental> approve({required String rentalId}) async {
+    await Future<void>.delayed(_delay);
+    final rental = _rentals[rentalId];
+    if (rental == null) {
+      throw const InvalidRentalTransition('La renta no existe');
+    }
+    if (rental.status != RentalStatus.pendingApproval &&
+        rental.status != RentalStatus.requested) {
+      throw const InvalidRentalTransition(
+        'Solo se pueden aprobar solicitudes pendientes',
+      );
+    }
+    final approved = rental.copyWith(status: RentalStatus.approved);
+    _rentals[rentalId] = approved;
+    await _notificationService.notifyRenterOnStatusChange(
+      rental: approved,
+      message: 'Tu solicitud para "${approved.listingTitle}" fue aprobada. Ya puedes realizar el pago.',
+    );
+    return approved;
+  }
+
+  @override
+  Future<Rental> reject({required String rentalId, String? reason}) async {
+    await Future<void>.delayed(_delay);
+    final rental = _rentals[rentalId];
+    if (rental == null) {
+      throw const InvalidRentalTransition('La renta no existe');
+    }
+    if (rental.status != RentalStatus.pendingApproval &&
+        rental.status != RentalStatus.requested) {
+      throw const InvalidRentalTransition(
+        'Solo se pueden rechazar solicitudes pendientes',
+      );
+    }
+    final rejected = rental.copyWith(
+      status: RentalStatus.rejected,
+      rejectionReason: reason,
+    );
+    _rentals[rentalId] = rejected;
+    await _notificationService.notifyRenterOnStatusChange(
+      rental: rejected,
+      message: 'Tu solicitud para "${rejected.listingTitle}" fue rechazada'
+          '${reason != null && reason.isNotEmpty ? ": $reason" : "."}',
+    );
+    return rejected;
   }
 
   @override
@@ -135,11 +211,10 @@ class MockRentalRepository implements RentalRepository {
     }
     if (!rental.canPay) {
       throw const InvalidRentalTransition(
-        'La renta no está en un estado pagable',
+        'La solicitud debe ser aprobada por el Vendedor antes del pago',
       );
     }
     if (!forceSuccess) {
-      // El pago falla: la renta permanece en SOLICITADA para reintentar.
       throw const PaymentFailed();
     }
 
@@ -148,7 +223,6 @@ class MockRentalRepository implements RentalRepository {
       amount: rental.amount,
       paidAt: DateTime.now(),
     );
-    // PAGADA → CONFIRMADA, y se genera el boleto con QR (HU-15).
     final ticket = _generateTicket(rental);
     final confirmed = rental.copyWith(
       status: RentalStatus.confirmed,
@@ -184,6 +258,15 @@ class MockRentalRepository implements RentalRepository {
   }
 
   @override
+  Future<List<Rental>> listPaymentHistory(String renterId) async {
+    await Future<void>.delayed(_delay);
+    return _rentals.values
+        .where((r) => r.renterId == renterId && r.payment != null)
+        .toList()
+      ..sort((a, b) => b.payment!.paidAt.compareTo(a.payment!.paidAt));
+  }
+
+  @override
   Future<List<Rental>> listForSeller(String ownerId) async {
     await Future<void>.delayed(_delay);
     return _rentals.values.where((r) => r.ownerId == ownerId).toList()
@@ -191,12 +274,93 @@ class MockRentalRepository implements RentalRepository {
   }
 
   @override
+  Future<SellerEarnings> getSellerEarnings({
+    required String ownerId,
+    EarningsPeriod period = EarningsPeriod.all,
+    String? listingId,
+  }) async {
+    await Future<void>.delayed(_delay);
+
+    final now = DateTime.now();
+    DateTime? startDateLimit;
+    switch (period) {
+      case EarningsPeriod.week:
+        startDateLimit = now.subtract(const Duration(days: 7));
+        break;
+      case EarningsPeriod.month:
+        startDateLimit = now.subtract(const Duration(days: 30));
+        break;
+      case EarningsPeriod.year:
+        startDateLimit = now.subtract(const Duration(days: 365));
+        break;
+      case EarningsPeriod.all:
+        startDateLimit = null;
+        break;
+    }
+
+    final sellerPaidRentals = _rentals.values.where((r) {
+      if (r.ownerId != ownerId || r.payment == null) return false;
+      if (listingId != null && listingId.isNotEmpty && r.listingId != listingId) {
+        return false;
+      }
+      if (startDateLimit != null && r.payment!.paidAt.isBefore(startDateLimit)) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    double totalEarnings = 0.0;
+    final Map<String, ListingEarningsBuilder> byListingMap = {};
+    final List<EarningsDataPoint> chartPoints = [];
+
+    for (final r in sellerPaidRentals) {
+      final amount = r.payment!.amount;
+      totalEarnings += amount;
+
+      final builder = byListingMap.putIfAbsent(
+        r.listingId,
+        () => ListingEarningsBuilder(r.listingId, r.listingTitle),
+      );
+      builder.totalAmount += amount;
+      builder.count += 1;
+
+      chartPoints.add(
+        EarningsDataPoint(
+          label: '${r.payment!.paidAt.day}/${r.payment!.paidAt.month}',
+          amount: amount,
+          date: r.payment!.paidAt,
+        ),
+      );
+    }
+
+    chartPoints.sort((a, b) => a.date.compareTo(b.date));
+
+    final byListingList = byListingMap.values
+        .map((b) => ListingEarnings(
+              listingId: b.listingId,
+              listingTitle: b.listingTitle,
+              totalAmount: b.totalAmount,
+              completedRentalsCount: b.count,
+            ))
+        .toList()
+      ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+
+    return SellerEarnings(
+      ownerId: ownerId,
+      period: period,
+      totalEarnings: totalEarnings,
+      totalRentalsCount: sellerPaidRentals.length,
+      byListing: byListingList,
+      chartPoints: chartPoints,
+      selectedListingId: listingId,
+    );
+  }
+
+  @override
   Future<Rental?> findById(String rentalId) async {
     await Future<void>.delayed(_delay);
     return _rentals[rentalId];
   }
-
-  // --- Recepción (Épica 4) ---------------------------------------------
 
   @override
   Future<Rental?> findByQrToken(String token) async {
@@ -239,7 +403,6 @@ class MockRentalRepository implements RentalRepository {
     if (rental == null) {
       throw const InvalidRentalTransition('La renta no existe');
     }
-    // RN-05: sin un QR válido en la fase de entrega no se entrega.
     final ticket = rental.ticket;
     if (ticket == null || !ticket.isValidAt(DateTime.now())) {
       throw const InvalidRentalTransition(
@@ -251,7 +414,6 @@ class MockRentalRepository implements RentalRepository {
         'El artículo debe estar en recepción para entregarse',
       );
     }
-    // ENTREGADA → EN RENTA, e invalida el QR usado (HU-17).
     final updated = rental.copyWith(
       status: RentalStatus.onRent,
       ticket: ticket.copyWith(used: true),
@@ -275,7 +437,6 @@ class MockRentalRepository implements RentalRepository {
         'La renta debe estar en curso para registrar la devolución',
       );
     }
-    // DEVUELTA → FINALIZADA (retorno al vendedor).
     final updated = rental.copyWith(
       status: RentalStatus.finished,
       itemConditionNote: itemCondition,
@@ -296,18 +457,15 @@ class MockRentalRepository implements RentalRepository {
     return updated;
   }
 
-  /// Genera un boleto con QR único e irrepetible para la fase de entrega.
   QrTicket _generateTicket(Rental rental) {
     final token = 'QR-${rental.id}-${_tokenCounter++}-'
         '${DateTime.now().microsecondsSinceEpoch}';
-    // Firma simulada: el backend usaría criptografía real (RNF-05).
     final signature = token.hashCode.toRadixString(16);
     return QrTicket(
       token: token,
       signature: signature,
       phase: QrPhase.pickup,
       issuedAt: DateTime.now(),
-      // Vigencia hasta el fin del lapso de renta.
       expiresAt: rental.endDate,
     );
   }
@@ -318,21 +476,25 @@ class MockRentalRepository implements RentalRepository {
     DateTime bStart,
     DateTime bEnd,
   ) {
-    // Hay traslape si cada inicio es anterior al fin del otro.
     return aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
   }
 
   double _priceFor(RentalRequest request) {
     final duration = request.endDate.difference(request.startDate);
-    // Tarifas base de ejemplo por periodo (el backend usaría el precio real
-    // de la publicación).
     return switch (request.period) {
       RentalPeriod.hour => 30.0 * duration.inHours.clamp(1, 1000),
       RentalPeriod.day => 25.0 * duration.inDays.clamp(1, 1000),
-      RentalPeriod.week =>
-        120.0 * (duration.inDays / 7).ceil().clamp(1, 1000),
+      RentalPeriod.week => 120.0 * (duration.inDays / 7).ceil().clamp(1, 1000),
     };
   }
 
   String _titleFor(String listingId) => 'Artículo $listingId';
+}
+
+class ListingEarningsBuilder {
+  ListingEarningsBuilder(this.listingId, this.listingTitle);
+  final String listingId;
+  final String listingTitle;
+  double totalAmount = 0.0;
+  int count = 0;
 }

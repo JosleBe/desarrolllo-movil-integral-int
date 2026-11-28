@@ -26,6 +26,7 @@ class Rental {
     this.ticket,
     this.itemConditionNote,
     this.receivedBy,
+    this.rejectionReason,
   });
 
   final String id;
@@ -61,14 +62,24 @@ class Rental {
   /// Responsable que registró la recepción (HU-19).
   final String? receivedBy;
 
+  /// Motivo de rechazo indicado por el Vendedor si fue rechazada (HU-38).
+  final String? rejectionReason;
+
+  bool get isPendingApproval => status == RentalStatus.pendingApproval;
+  bool get isApproved => status == RentalStatus.approved;
+  bool get isRejected => status == RentalStatus.rejected;
   bool get isRequested => status == RentalStatus.requested;
   bool get isConfirmed => status == RentalStatus.confirmed;
 
   /// Se puede cancelar solo mientras no se haya pagado (HU-16).
-  bool get canCancel => status == RentalStatus.requested;
+  bool get canCancel =>
+      status == RentalStatus.pendingApproval ||
+      status == RentalStatus.approved ||
+      status == RentalStatus.requested;
 
-  /// Se puede pagar solo si está en SOLICITADA (HU-14).
-  bool get canPay => status == RentalStatus.requested;
+  /// El pago solo se habilita después de la aprobación (HU-38, HU-14).
+  bool get canPay =>
+      status == RentalStatus.approved || status == RentalStatus.requested;
 
   Rental copyWith({
     RentalStatus? status,
@@ -76,6 +87,7 @@ class Rental {
     QrTicket? ticket,
     String? itemConditionNote,
     String? receivedBy,
+    String? rejectionReason,
   }) {
     return Rental(
       id: id,
@@ -94,6 +106,7 @@ class Rental {
       ticket: ticket ?? this.ticket,
       itemConditionNote: itemConditionNote ?? this.itemConditionNote,
       receivedBy: receivedBy ?? this.receivedBy,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 }

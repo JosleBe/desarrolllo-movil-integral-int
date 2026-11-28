@@ -6,6 +6,8 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const profile = '/profile';
   static const listing = '/listing';
+  static const paymentHistory = '/payment-history';
+  static const sellerEarnings = '/seller-earnings';
 
   /// Ruta de detalle de una publicación por id.
   static String listingDetail(String id) => '$listing/$id';
